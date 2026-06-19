@@ -1,0 +1,55 @@
+id: SC6
+title: Content extractor via jsdom and Mozilla Readability
+description: >
+  Implement content-extractor.ts that parses HTML using jsdom to create a DOM,
+  then applies
+
+  Mozilla Readability to extract the page title and clean text content. Returns
+
+  extractionMethod 'readability' if the extracted text is >= minContentChars
+  (200), or
+
+  'readability-failed' if below threshold or if Readability throws. This is the
+  primary
+
+  extraction path.
+requirements:
+  - US-SC-002
+  - BG-SC-001
+  - BG-SC-002
+acceptanceCriteria:
+  - extractWithReadability(html, url) returns an ExtractionOutput with title,
+    textContent, charCount
+  - When Readability extracts >= 200 characters, extractionMethod is
+    'readability'
+  - When Readability extracts < 200 characters, extractionMethod is
+    'readability-failed' to trigger Puppeteer fallback
+  - When Readability throws an error, extractionMethod is 'readability-failed'
+    with empty textContent (caught, not propagated)
+  - text content strips navigation, ads, sidebars, and boilerplate
+  - jsdom is constructed with the URL as the document URL for proper relative
+    link resolution
+  - All parameters and return types are explicitly typed (strict mode, no any)
+schemas:
+  - ExtractionOutput
+files:
+  - src/modules/scrape-extract/content-extractor.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import { JSDOM } from 'jsdom' and Readability from '@mozilla/readability'
+  - "Implement extractWithReadability(html: string, url: string):
+    ExtractionOutput"
+  - Create a JSDOM instance from html with url set; extract the document
+  - Pass the jsdom document to new Readability(doc).parse(); wrap in try/catch
+  - "On success: extract article.title and article.textContent; set charCount to
+    textContent.length"
+  - If charCount >= 200 set extractionMethod 'readability'; otherwise
+    'readability-failed'
+  - "On catch: return { title: '', textContent: '', extractionMethod:
+    'readability-failed', charCount: 0 }"
+  - Release JSDOM references after extraction to support memory efficiency
+    (NFR-SC-001)

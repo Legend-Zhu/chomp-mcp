@@ -1,0 +1,100 @@
+id: DD9
+title: Deduplicator orchestrator — full pipeline entry function
+description: >
+  Implement `src/modules/deduplicate/deduplicator.ts` with the main
+  `deduplicate` function. Orchestrates
+
+  the full pipeline: (1) filter empty-content items with warning logging, (2)
+  URL normalize each item with
+
+  per-item error catching, (3) exact-URL dedup, (4) segment + fingerprint each
+  item, (5) exact-content
+
+  dedup, (6) near-duplicate merge, (7) assemble DeduplicatedItem[] with
+  normalizedUrl, mergedSources,
+
+  fingerprintCount, (8) log summary stats. Returns empty array for empty input.
+  Single-item input skips
+
+  pairwise comparison. Pure function — never mutates input, returns fresh
+  objects, never throws (all
+
+  errors caught, logged, item skipped). Resolves config via loadConfig when
+  config is undefined.
+requirements:
+  - US-DD-003
+  - US-DD-008
+  - US-DD-009
+  - US-DD-010
+  - US-DD-011
+  - BG-DD-001
+  - BG-DD-002
+  - NFR-DD-001
+  - NFR-DD-003
+  - NFR-DD-004
+  - NFR-DD-005
+  - NFR-DD-007
+  - DC-DD-001
+  - DC-DD-003
+  - DC-DD-004
+acceptanceCriteria:
+  - deduplicate(items, config?) returns DeduplicatedItem[] and never throws to
+    callers
+  - Returns empty array immediately for empty input array, logging zero-stats
+    summary
+  - Single-item input normalizes URL, fingerprints, and returns that item
+    without pairwise comparison
+  - Items with empty/null/whitespace content are removed with stderr warning
+    including the item's URL
+  - Items causing exceptions during any stage are caught, logged with URL +
+    error, and skipped
+  - Input array and input objects are never mutated; all output objects are
+    fresh copies
+  - Output items include normalizedUrl, mergedSources (string[], may be empty),
+    and fingerprintCount (integer)
+  - Logs stderr when exact-URL duplicates are removed, including the count
+  - Logs stderr when near-duplicate items are removed and number of groups merged
+  - "[object Object]"
+  - Uses loadConfig when config is undefined to read env vars
+  - Processing never makes network calls or LLM API invocations
+  - Output is deterministic — same input in same order always produces same
+    output
+  - Records elapsed time in stats.elapsedMs
+schemas:
+  - DeduplicatedItem
+  - DDConfig
+  - FingerprintedItem
+  - DedupStats
+files:
+  - src/modules/deduplicate/deduplicator.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD1
+  - DD2
+  - DD3
+  - DD5
+  - DD7
+  - DD8
+category: service
+implementationSteps:
+  - Import normalizeUrl from url-normalizer.ts, computeFingerprintSet from
+    fingerprinter.ts,
+    deduplicateByUrl/deduplicateExactContent/mergeNearDuplicates from
+    content-merger.ts, createDedupStats/logStats from stats.ts, loadConfig/types
+    from types.ts, DDConfig/DeduplicatedItem from shared types, log from shared
+    logger
+  - Record start time with performance.now() or Date.now()
+  - Initialize stats via createDedupStats, set inputCount
+  - "[object Object]"
+  - Resolve config via loadConfig(config) if config undefined
+  - "[object Object]"
+  - "[object Object]"
+  - Build FingerprintedItem[] with normalizedUrl and originalIndex
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - Set outputCount and elapsedMs in stats
+  - Call logStats and return the array

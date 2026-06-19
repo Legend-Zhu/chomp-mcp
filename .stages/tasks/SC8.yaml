@@ -1,0 +1,69 @@
+id: SC8
+title: Puppeteer headless browser fallback renderer
+description: >
+  Implement puppeteer-renderer.ts as the fallback path for JavaScript-rendered
+  SPA pages.
+
+  Dynamically imports puppeteer (await import('puppeteer')), launches a headless
+  browser
+
+  with --no-sandbox --disable-gpu --disable-dev-shm-usage flags, navigates to
+  the URL,
+
+  waits for networkidle0 or max 10 seconds, extracts rendered HTML, and closes
+  the browser.
+
+  Handles the case where puppeteer is not installed gracefully. All console
+  output from the
+
+  browser is captured and routed to stderr only.
+requirements:
+  - US-SC-004
+  - US-SC-011
+  - NFR-SC-002
+  - NFR-SC-006
+  - DC-SC-004
+  - BG-SC-003
+acceptanceCriteria:
+  - renderPage(url, timeoutMs) dynamically imports puppeteer via await
+    import('puppeteer')
+  - "Browser launches with args: --no-sandbox, --disable-gpu,
+    --disable-dev-shm-usage"
+  - Page navigates to URL and waits for networkidle0 or max 10 seconds
+    (whichever comes first)
+  - Returns rendered HTML as string on success
+  - Browser instance and all pages are closed after extraction (no zombie
+    processes)
+  - At most one browser instance is launched per invocation
+  - "If puppeteer is not installed or import fails, logs warning to stderr and
+    returns RenderResult with success: false and error message — does NOT crash
+    the process"
+  - All Puppeteer page console events and error events are captured and routed
+    to process.stderr; nothing goes to stdout
+  - Render timeout uses the provided timeoutMs parameter with a separate timer
+    for the render phase
+schemas:
+  - RenderResult
+files:
+  - src/modules/scrape-extract/puppeteer-renderer.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import RenderResult from ./types
+  - "Implement renderPage(url: string, timeoutMs: number): Promise<RenderResult>"
+  - Wrap entire body in try/catch to ensure no uncaught errors propagate
+  - "Dynamic import: const puppeteer = await import('puppeteer') inside
+    try/catch; on failure return { success: false, html: null, error: 'Puppeteer
+    rendering failed: ...' }"
+  - "Launch browser with { headless: true, args: ['--no-sandbox',
+    '--disable-gpu', '--disable-dev-shm-usage'] }"
+  - Open a new page; attach page.on('console') and page.on('pageerror') handlers
+    that write to process.stderr
+  - "Navigate with page.goto(url, { waitUntil: 'networkidle0', timeout:
+    Math.min(timeoutMs, 10000) })"
+  - Extract rendered HTML via page.content()
+  - "Always close the browser in a finally block: await browser.close()"
+  - "Return { success: true, html, error: null } on success"

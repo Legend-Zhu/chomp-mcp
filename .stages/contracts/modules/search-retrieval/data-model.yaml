@@ -1,0 +1,173 @@
+schemas:
+  SearchResult:
+    fields:
+      title:
+        type: string
+        required: true
+        maxLength: 500
+        description: "Result title; defaults to '(untitled)' if missing; truncated to 497 chars + '...'"
+      url:
+        type: string
+        required: true
+        description: "Result URL validated as a parseable URI via the URL constructor"
+      snippet:
+        type: string
+        required: true
+        maxLength: 1000
+        description: "Result snippet from SearXNG 'content' field; defaults to '' if missing; truncated to 997 chars + '...'"
+      score:
+        type: number
+        required: true
+        minimum: 0.0
+        maximum: 1.0
+        description: "Normalized relevance score in range [0.0, 1.0]; first result always highest"
+
+  SearchOptions:
+    fields:
+      maxResults:
+        type: integer
+        required: false
+        minimum: 1
+        description: "Maximum results to return; defaults to 10 if omitted"
+      timeoutMs:
+        type: integer
+        required: false
+        minimum: 1
+        description: "Per-request timeout override in milliseconds; falls back to SEARXNG_TIMEOUT_MS env var (default 10000)"
+      categories:
+        type: string
+        required: false
+        description: "SearXNG categories query parameter, e.g. 'general', 'it', 'science'"
+
+  SearXNGRawResult:
+    fields:
+      url:
+        type: any
+        required: false
+        description: "Raw URL value from SearXNG; validated and type-narrowed during parsing"
+      title:
+        type: any
+        required: false
+        description: "Raw title value; may be string, undefined, or non-string"
+      content:
+        type: any
+        required: false
+        description: "Raw snippet/content value; mapped to 'snippet' in SearchResult"
+      score:
+        type: any
+        required: false
+        description: "Raw numeric score from SearXNG; may be absent"
+
+  ParsedResult:
+    fields:
+      title:
+        type: string
+        required: true
+        description: "Raw title string pre-normalization (before defaults/truncation applied)"
+      url:
+        type: string
+        required: true
+        description: "Validated URL string that passes the URL constructor"
+      content:
+        type: string
+        required: true
+        description: "Raw content/snippet string pre-normalization (before defaults/truncation applied)"
+      score:
+        type: number
+        required: false
+        description: "Numeric score if SearXNG provided one; null/absent if not provided"
+
+  ParseOutput:
+    fields:
+      results:
+        type: array
+        required: true
+        items:
+          type: ParsedResult
+        description: "Valid parsed results with malformed entries excluded"
+      skippedMalformed:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Count of entries skipped due to missing or invalid URL"
+
+  SearXNGFetchResult:
+    fields:
+      status:
+        type: integer
+        required: true
+        description: "HTTP response status code"
+      body:
+        type: string
+        required: true
+        description: "Response body as UTF-8 string for JSON parsing or non-JSON diagnostics"
+      contentType:
+        type: string
+        required: false
+        description: "Value of the Content-Type response header, or null if absent"
+      retryAfterMs:
+        type: integer
+        required: false
+        description: "Parsed Retry-After header in milliseconds (only for HTTP 429); null otherwise"
+
+  SearchConfig:
+    fields:
+      timeoutMs:
+        type: integer
+        required: true
+        description: "Per-request timeout in ms; from options.timeoutMs or SEARXNG_TIMEOUT_MS (default 10000)"
+      maxRetries:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Max retry attempts per instance; from SEARXNG_MAX_RETRIES (default 2)"
+      retryBaseMs:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Exponential backoff base delay in ms; from SEARXNG_RETRY_BASE_MS (default 500)"
+      maxResults:
+        type: integer
+        required: true
+        minimum: 1
+        description: "Max results to return; from options.maxResults (default 10)"
+      categories:
+        type: string
+        required: false
+        description: "Optional SearXNG categories parameter"
+
+  InstancePool:
+    fields:
+      mode:
+        type: SearXNGMode
+        required: true
+        description: "Operational mode: 'self-hosted' (single instance, no failover) or 'public' (failover enabled)"
+      instances:
+        type: array
+        required: true
+        items:
+          type: string
+        minItems: 1
+        description: "Ordered list of instance base URLs; exactly one in self-hosted mode, at least 3 in public mode; reordered on successful failover promotion"
+      cursor:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Index into instances pointing to the current target; reset to 0 at the start of each search() call"
+
+enums:
+  SearXNGMode:
+    values:
+      - self-hosted
+      - public
+    description: "Self-hosted when SEARXNG_URL is set (no failover); public when unset (built-in list with failover)"
+
+  SearchErrorCategory:
+    values:
+      - timeout
+      - parse_error
+      - http_error
+      - network
+      - config
+      - validation
+    description: "Error category for SearchError subclasses, used to drive retry and failover decisions"

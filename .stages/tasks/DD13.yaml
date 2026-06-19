@@ -1,0 +1,35 @@
+id: DD13
+title: Tests — fingerprinter
+description: >
+  Implement `tests/modules/deduplicate/fingerprinter.test.ts` covering FNV-1a
+  hash determinism,
+
+  identical-input consistency, fingerprint set deduplication, and known hash
+  values.
+requirements:
+  - US-DD-005
+  - DC-DD-002
+  - NFR-DD-005
+acceptanceCriteria:
+  - Tests fnv1a32 returns deterministic unsigned 32-bit integer
+  - Tests identical normalized strings produce identical hashes
+  - Tests different strings produce different hashes
+  - Tests computeFingerprintSet returns Set<number> with unique values
+  - Tests computeFingerprintSet deduplicates identical paragraphs into one
+    fingerprint
+  - Tests known FNV-1a constant values (offset, prime) are correct
+schemas: []
+files:
+  - tests/modules/deduplicate/fingerprinter.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD5
+category: test
+implementationSteps:
+  - Import fnv1a32, computeFingerprintSet, FNV_OFFSET_32, FNV_PRIME_32
+  - Write tests verifying FNV constant values
+  - Write tests for fnv1a32 determinism and collision resistance on sample
+    strings
+  - Write tests for computeFingerprintSet with multi-paragraph content including
+    duplicate paragraphs

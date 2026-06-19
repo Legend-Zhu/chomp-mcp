@@ -1,0 +1,158 @@
+interfaces:
+  ScrapeExtract:
+    exports:
+      - name: scrape
+        params:
+          - url: string
+          - options: ScrapeOptions
+        returns: ScrapeResult
+        description: "Public entry point. Fetches a URL and extracts clean text content via primary readability path or Puppeteer fallback. Always resolves, never rejects for expected failures."
+    imports:
+      - from: UrlValidator
+        functions: [validateUrl]
+      - from: HttpFetcher
+        functions: [fetchUrl]
+      - from: EncodingDetector
+        functions: [detectCharset, decodeToUtf8]
+      - from: ContentTypeRouter
+        functions: [routeContent]
+      - from: ContentExtractor
+        functions: [extractWithReadability]
+      - from: PuppeteerRenderer
+        functions: [renderPage]
+      - from: Truncator
+        functions: [truncate]
+      - from: ConfigResolver
+        functions: [resolveConfig]
+      - from: ScrapeLogger
+        functions: [logStart, logSuccess, logFail, logFallback, logEncoding]
+
+  UrlValidator:
+    exports:
+      - name: validateUrl
+        params:
+          - url: string
+        returns: ValidationResult
+        description: "Validates URL is a non-empty string, parses via URL constructor, checks scheme is http/https, and blocks private/loopback IP resolution for SSRF prevention."
+    imports: []
+
+  HttpFetcher:
+    exports:
+      - name: fetchUrl
+        params:
+          - url: string
+          - config: ScrapeConfig
+        returns: FetchResult
+        description: "Issues HTTP GET via native fetch. Follows redirects up to maxRedirects, retries transient errors with exponential backoff, handles 429 Retry-After, and enforces timeoutMs."
+    imports:
+      - from: ConfigResolver
+        functions: [resolveConfig]
+      - from: ScrapeLogger
+        functions: [logStart, logFail]
+
+  EncodingDetector:
+    exports:
+      - name: detectCharset
+        params:
+          - contentType: string
+          - bodyBytes: string
+        returns: string
+        description: "Detects charset from Content-Type header parameter, falls back to HTML meta tag inspection, defaults to UTF-8. Returns canonical charset name."
+      - name: decodeToUtf8
+        params:
+          - bodyBytes: string
+          - charset: string
+        returns: string
+        description: "Decodes raw body bytes to UTF-8 string using iconv-lite. Logs warning if replacement characters exceed 5 percent of total."
+    imports:
+      - from: ScrapeLogger
+        functions: [logEncoding]
+
+  ContentTypeRouter:
+    exports:
+      - name: routeContent
+        params:
+          - contentType: string
+          - bodyText: string
+        returns: ContentTypeResult
+        description: "Routes by Content-Type: HTML returns kind 'html' with null textContent (needs Readability); JSON parses and formats; XML strips tags via cheerio; text returns as-is; binary/unsupported returns error."
+    imports: []
+
+  ContentExtractor:
+    exports:
+      - name: extractWithReadability
+        params:
+          - html: string
+          - url: string
+        returns: ExtractionOutput
+        description: "Parses HTML with jsdom, applies Mozilla Readability to extract title and textContent. Returns extractionMethod 'readability' if charCount >= minContentChars, 'readability-failed' otherwise."
+    imports: []
+
+  PuppeteerRenderer:
+    exports:
+      - name: renderPage
+        params:
+          - url: string
+          - timeoutMs: integer
+        returns: RenderResult
+        description: "Launches Puppeteer headless browser with --no-sandbox, --disable-gpu, --disable-dev-shm-usage. Navigates to URL, waits for networkidle0 or timeout, returns rendered HTML."
+    imports:
+      - from: ScrapeLogger
+        functions: [logFallback]
+
+  Truncator:
+    exports:
+      - name: truncate
+        params:
+          - text: string
+          - maxChars: integer
+        returns: TruncationResult
+        description: "Truncates at nearest word boundary at or before maxChars, appends '…[truncated]' marker. When maxChars is 0 or negative, returns original text with truncated=false."
+    imports: []
+
+  ConfigResolver:
+    exports:
+      - name: resolveConfig
+        params:
+          - options: ScrapeOptions
+        returns: ScrapeConfig
+        description: "Resolves configuration from environment variables SCRAPE_TIMEOUT_MS (default 15000) and MAX_CONTENT_CHARS (default 8000), with per-call overrides from ScrapeOptions."
+    imports: []
+
+  ScrapeLogger:
+    exports:
+      - name: logStart
+        params:
+          - url: string
+        returns: void
+        description: "Emits '[scrape] START {url}' to process.stderr."
+      - name: logSuccess
+        params:
+          - url: string
+          - extractionMethod: string
+          - chars: integer
+          - truncated: boolean
+          - elapsedMs: integer
+        returns: void
+        description: "Emits '[scrape] OK {url} method={method} chars={N} truncated={bool} ms={elapsed}' to process.stderr."
+      - name: logFail
+        params:
+          - url: string
+          - error: string
+          - elapsedMs: integer
+        returns: void
+        description: "Emits '[scrape] FAIL {url} error={message} ms={elapsed}' to process.stderr."
+      - name: logFallback
+        params:
+          - url: string
+        returns: void
+        description: "Emits '[scrape] FALLBACK {url} → puppeteer' to process.stderr."
+      - name: logEncoding
+        params:
+          - url: string
+          - charset: string
+        returns: void
+        description: "Emits '[scrape] ENCODING {url} charset={detected}' to process.stderr."
+    imports: []
+```
+---

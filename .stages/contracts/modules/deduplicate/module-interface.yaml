@@ -1,0 +1,163 @@
+interfaces:
+  UrlNormalizer:
+    exports:
+      - name: normalizeUrl
+        params:
+          - name: rawUrl
+            type: string
+          - name: extraTrackingParams
+            type: string[]
+            optional: true
+        returns: string
+        description: "Canonicalize a URL: convert http to https, lowercase hostname, remove fragment, remove default ports (80/443), remove trailing slash if path length > 1, strip tracking parameters from blocklist plus extraTrackingParams, and sort remaining query parameters alphabetically by key."
+      - name: TRACKING_PARAM_BLOCKLIST
+        type: constant
+        description: "Readonly array of built-in tracking parameter names (utm_source, utm_medium, utm_campaign, utm_content, utm_term, gclid, fbclid, mc_cid, mc_eid, ref, _hsenc, _hsmi, igshid, si) to strip during normalization."
+    imports: []
+
+  ParagraphSegmenter:
+    exports:
+      - name: segmentParagraphs
+        params:
+          - name: text
+            type: string
+          - name: minChars
+            type: number
+        returns: string[]
+        description: "Split text content into paragraph segments at boundaries of 2+ consecutive newlines, <br>, <br/>, <br />, </p>, and </div> tags. Discard segments shorter than minChars. Returns trimmed, whitespace-collapsed paragraph strings; empty array if text is empty or whitespace-only."
+    imports: []
+
+  Fingerprinter:
+    exports:
+      - name: fnv1a32
+        params:
+          - name: normalizedText
+            type: string
+        returns: number
+        description: "Compute a non-cryptographic FNV-1a 32-bit hash of a pre-normalized paragraph string. Uses FNV_OFFSET_32 (2166136261) and FNV_PRIME_32 (16777619) with Math.imul and unsigned >>> 0 conversion."
+      - name: computeFingerprintSet
+        params:
+          - name: content
+            type: string
+          - name: minChars
+            type: number
+        returns: Set<number>
+        description: "Build a deduplicated set of 32-bit paragraph fingerprints for an article by segmenting content into paragraphs, normalizing each, computing FNV-1a hashes, and collecting unique hashes."
+      - name: FNV_OFFSET_32
+        type: constant
+        description: "FNV-1a 32-bit offset basis (2166136261)."
+      - name: FNV_PRIME_32
+        type: constant
+        description: "FNV-1a 32-bit prime (16777619)."
+    imports:
+      - from: ParagraphSegmenter
+        functions: [segmentParagraphs]
+
+  SimilarityComputer:
+    exports:
+      - name: jaccardSimilarity
+        params:
+          - name: setA
+            type: Set<number>
+          - name: setB
+            type: Set<number>
+        returns: number
+        description: "Compute the Jaccard similarity coefficient |A ∩ B| / |A ∪ B| between two fingerprint sets. Iterates over the smaller set for O(min(|A||B|)) intersection counting. Returns 1.0 for identical sets, 0.0 for disjoint sets, and 0.0 if both sets are empty."
+    imports: []
+
+  ContentMerger:
+    exports:
+      - name: deduplicateByUrl
+        params:
+          - name: items
+            type: FingerprintedItem[]
+        returns: "{ retained: FingerprintedItem[], removed: number }"
+        description: "Remove exact-URL duplicates by grouping FingerprintedItems by normalizedUrl. Retain the highest-scoring item per group; ties broken by earliest originalIndex. Returns retained items and count of removed items."
+      - name: deduplicateExactContent
+        params:
+          - name: items
+            type: FingerprintedItem[]
+        returns: "{ retained: FingerprintedItem[], removed: number }"
+        description: "Remove exact-content duplicates by grouping items with identical fingerprint sets (compared via sorted-array join). Retain highest-scoring item per group; ties broken by earliest originalIndex. Copies discarded items' source URLs into retained items' mergedSources arrays."
+      - name: mergeNearDuplicates
+        params:
+          - name: items
+            type: FingerprintedItem[]
+          - name: threshold
+            type: number
+        returns: "{ retained: FingerprintedItem[], removed: number, groupsMerged: number }"
+        description: "Merge near-duplicate items using pairwise Jaccard similarity and union-find for transitive grouping. Compute N*(N-1)/2 pairwise comparisons, build edges where similarity >= threshold, form transitive groups via disjoint-set forest with path compression and union-by-rank. Per group retain highest-scoring item (ties → earliest originalIndex), copy discarded items' URLs into mergedSources."
+    imports:
+      - from: SimilarityComputer
+        functions: [jaccardSimilarity]
+
+  Stats:
+    exports:
+      - name: createDedupStats
+        params: []
+        returns: DedupStats
+        description: "Create and return a new DedupStats accumulator with all count fields initialized to zero."
+      - name: logStats
+        params:
+          - name: stats
+            type: DedupStats
+        returns: void
+        description: "Log structured deduplication summary to stderr. Format: [DD] summary: input={inputCount} url_dups_removed={exactUrlDuplicatesRemoved} content_dups_removed={exactContentDuplicatesRemoved} near_dups_removed={nearDuplicatesRemoved} empty_removed={emptyContentRemoved} errors={errorItemsRemoved} output={outputCount} elapsed={elapsedMs}ms"
+    imports: []
+
+  Types:
+    exports:
+      - name: DedupStats
+        type: schema
+        description: "Module-local statistics accumulator."
+        fields:
+          - inputCount: integer
+          - emptyContentRemoved: integer
+          - errorItemsRemoved: integer
+          - exactUrlDuplicatesRemoved: integer
+          - exactContentDuplicatesRemoved: integer
+          - nearDuplicatesRemoved: integer
+          - outputCount: integer
+          - elapsedMs: number
+      - name: FingerprintedItem
+        type: schema
+        description: "Module-internal working structure for content-level deduplication."
+        fields:
+          - item: ContentItem
+          - normalizedUrl: string
+          - fingerprints: Set<number>
+          - originalIndex: integer
+      - name: MAX_PAIRWISE_ITEMS
+        type: constant
+        description: "Maximum items (50) before pairwise comparison cost warning is logged to stderr."
+      - name: MIN_PARAGRAPH_CHARS_DEFAULT
+        type: constant
+        description: "Default minimum paragraph character count (20) for fingerprinting eligibility."
+      - name: SIMILARITY_THRESHOLD_DEFAULT
+        type: constant
+        description: "Default Jaccard similarity threshold (0.85) for near-duplicate classification."
+    imports:
+      - from: ContentItem
+        functions: []
+        note: "Cross-module schema reference from synthesize module — ContentItem is consumed as-is."
+
+  Deduplicator:
+    exports:
+      - name: deduplicate
+        params:
+          - name: items
+            type: ContentItem[]
+          - name: config
+            type: DDConfig
+            optional: true
+        returns: DeduplicatedItem[]
+        description: "Full deduplication pipeline entry point. Executes phases in order: (1) filter empty-content items with warning logging, (2) URL normalize each item with per-item error catching, (3) exact-URL dedup retaining highest score per canonical URL, (4) segment paragraphs and compute fingerprint sets, (5) exact-content dedup on identical fingerprint sets, (6) near-duplicate merge via Jaccard similarity with union-find, (7) assemble DeduplicatedItem[] with normalizedUrl, mergedSources, and fingerprintCount fields, (8) log summary stats to stderr. Returns empty array for empty input. Single-item input skips pairwise comparison. Input objects are never mutated; all outputs are fresh copies."
+    imports:
+      - from: UrlNormalizer
+        functions: [normalizeUrl]
+      - from: Fingerprinter
+        functions: [computeFingerprintSet]
+      - from: ContentMerger
+        functions: [deduplicateByUrl, deduplicateExactContent, mergeNearDuplicates]
+      - from: Stats
+        functions: [createDedupStats, logStats]

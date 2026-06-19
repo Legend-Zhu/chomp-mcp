@@ -1,0 +1,61 @@
+id: SRS2
+title: Implement custom search error class hierarchy and isRetryableError classifier
+description: >
+  Create src/modules/search-retrieval/errors.ts with all seven custom error
+  classes
+
+  (SearchError base, SearchTimeoutError, SearchParseError, SearchFailedError,
+
+  SearchUnavailableError, ConfigurationError, ValidationError) plus the
+
+  isRetryableError classifier function. Errors must never expose credentials or
+
+  API keys in messages. Error objects carry a SearchErrorCategory for
+  retry/failover
+
+  decision logic.
+requirements:
+  - US-SR-012
+  - NFR-SR-002
+  - NFR-SR-005
+  - DC-SR-002
+acceptanceCriteria:
+  - SearchError extends Error and serves as base for SearchTimeoutError,
+    SearchParseError, SearchFailedError, SearchUnavailableError
+  - ConfigurationError and ValidationError extend Error directly (input/config
+    errors, not transport errors)
+  - SearchTimeoutError carries message matching US-SR-004 format and is
+    classified retryable
+  - SearchParseError carries message for non-JSON and invalid-JSON responses
+    with body excerpt capability
+  - SearchFailedError is thrown when self-hosted instance exhausts retries;
+    classified not-retryable
+  - SearchUnavailableError message reads "All SearXNG instances unavailable. Set
+    SEARXNG_URL to a self-hosted instance for improved reliability."
+  - isRetryableError returns true for SearchTimeoutError, SearchParseError,
+    network errors, HTTP 5xx; false for ValidationError, ConfigurationError,
+    SearchFailedError, SearchUnavailableError
+  - No error message includes API keys, tokens, or credentials
+  - All error output (console.error) writes exclusively to stderr, never stdout
+schemas:
+  - SearchErrorCategory
+files:
+  - src/modules/search-retrieval/errors.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS1
+category: service
+implementationSteps:
+  - Define SearchError class extending Error with a category field of type
+    SearchErrorCategory
+  - Define SearchTimeoutError, SearchParseError, SearchFailedError,
+    SearchUnavailableError extending SearchError with appropriate category
+    values
+  - Define ConfigurationError and ValidationError extending Error directly (not
+    SearchError)
+  - "Implement isRetryableError(error: unknown): boolean that checks instanceof
+    and category for retry/failover decisions"
+  - Ensure SearchParseError constructor accepts an optional bodyExcerpt string
+    for diagnostic HTML content
+  - Add ESM export statements for all seven classes plus isRetryableError

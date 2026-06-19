@@ -1,0 +1,45 @@
+id: DD11
+title: Tests — URL normalizer
+description: >
+  Implement `tests/modules/deduplicate/url-normalizer.test.ts` covering all URL
+  normalization
+
+  requirements: tracking-param removal, scheme conversion, hostname lowercasing,
+  fragment removal,
+
+  default port removal, trailing-slash removal, query-param sorting,
+  percent-encoding preservation,
+
+  and malformed URL error handling.
+requirements:
+  - US-DD-001
+  - US-DD-002
+  - DC-DD-006
+  - NFR-DD-006
+acceptanceCriteria:
+  - Tests that tracking params (utm_source, gclid, fbclid, etc.) are stripped
+  - Tests that non-tracking params are preserved
+  - Tests http→https conversion
+  - Tests hostname lowercasing
+  - Tests fragment removal
+  - Tests default port 80/443 removal
+  - Tests trailing-slash removal for non-root paths
+  - Tests query-param alphabetical sorting
+  - Tests no trailing '?' when all params stripped
+  - Tests percent-encoding preservation in path
+  - Tests extraTrackingParams are stripped in addition to blocklist
+  - Tests malformed URL throws Error
+schemas: []
+files:
+  - tests/modules/deduplicate/url-normalizer.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD3
+category: test
+implementationSteps:
+  - Import normalizeUrl and TRACKING_PARAM_BLOCKLIST
+  - Write test cases for each normalization rule using expect/toBe assertions
+  - Write a test with multiple tracking params and non-tracking params mixed
+  - Write a test for extraTrackingParams extensibility
+  - Write a test that malformed URLs throw

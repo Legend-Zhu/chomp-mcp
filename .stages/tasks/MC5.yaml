@@ -1,0 +1,76 @@
+id: MC5
+title: Public Barrel and Process Entry Point
+description: >
+  Create the mcp-server module barrel (index.ts) re-exporting createServer,
+  startServer, and
+
+  shutdown. Create the process entry point (src/index.ts) with #!/usr/bin/env
+  node shebang that
+
+  validates LLM_API_KEY at startup, imports normalized env config, constructs
+  runWebSearch and
+
+  runWebFetch from pipeline-orchestration, injects them into createServer as
+  OrchestrationHandlers,
+
+  and calls startServer. Ensures the npx bin entry point works (DC-MC-006).
+requirements:
+  - US-MC-001
+  - US-MC-012
+  - DC-MC-005
+  - DC-MC-006
+  - DC-MC-007
+acceptanceCriteria:
+  - src/index.ts starts with '#!/usr/bin/env node' shebang line
+  - mcp-server/index.ts re-exports createServer, startServer, and shutdown from
+    server.ts
+  - "src/index.ts checks process.env.LLM_API_KEY; if missing or empty, logs
+    '[mcp-server] FATAL: LLM_API_KEY environment variable is required' to stderr
+    and exits with code 1"
+  - src/index.ts imports appConfig from shared/config for normalized environment
+    values
+  - src/index.ts imports runWebSearch and runWebFetch from
+    pipeline-orchestration module
+  - src/index.ts constructs OrchestrationHandlers object with runWebSearch and
+    runWebFetch and passes to createServer
+  - src/index.ts calls startServer(server) to begin listening on stdio
+  - src/index.ts catches top-level startup errors, logs to stderr, and exits
+    with code 1
+  - src/index.ts does NOT import PL directly into mcp-server module — injection
+    happens only at the entry point boundary
+  - package.json bin field maps to dist/index.js enabling npx execution
+    (verified during build)
+  - All exports use ESM import/export syntax
+  - File compiles under tsc strict mode with zero errors
+schemas:
+  - OrchestrationHandlers
+  - CreateServerOptions
+  - ServerInfo
+files:
+  - src/modules/mcp-server/index.ts
+  - src/index.ts
+mode: create
+dependsOn:
+  - MC4
+  - PL1
+  - BOOTSTRAP
+category: entry
+implementationSteps:
+  - "Create src/modules/mcp-server/index.ts: import { createServer, startServer,
+    shutdown } from './server.js'; re-export all three as named exports; also
+    re-export CreateServerOptions and OrchestrationHandlers types"
+  - Create src/index.ts with '#!/usr/bin/env node' as the first line
+  - In src/index.ts import { createServer, startServer } from
+    './modules/mcp-server/index.js'
+  - Import { runWebSearch, runWebFetch } from
+    './modules/pipeline-orchestration/index.js'
+  - Import { appConfig } from './shared/config/index.js'
+  - "Implement main() async function: check if (!process.env.LLM_API_KEY ||
+    process.env.LLM_API_KEY.trim() === '') then log.error('[mcp-server] FATAL:
+    LLM_API_KEY environment variable is required') and process.exit(1)"
+  - "In main(): construct handlers = { runWebSearch, runWebFetch }; call
+    createServer({ handlers }); call await startServer(server)"
+  - "Wrap main() call in try/catch: on error log to stderr and process.exit(1)"
+  - Call main() at module top level (or use void main())
+  - Verify package.json has bin field 'chomp-mcp' pointing to
+    'dist/index.js' (extend if not present from BOOTSTRAP)

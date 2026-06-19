@@ -1,0 +1,71 @@
+id: MC2
+title: MCP Tool Definitions and JSON Schema Contracts
+description: >
+  Create tool-definitions.ts with static MCP Tool definition objects for
+  web_search and
+
+  web_fetch. Each definition includes name, description, and a JSON Schema draft
+  2020-12
+
+  inputSchema with type object, required fields, defaults, and
+  additionalProperties false.
+
+  Also exports TOOL_DEFINITIONS array for the tools/list handler.
+requirements:
+  - US-MC-003
+  - US-MC-004
+  - US-MC-005
+  - BG-MC-002
+  - DC-MC-003
+  - DC-MC-004
+acceptanceCriteria:
+  - WEB_SEARCH_TOOL.name equals 'web_search'
+  - WEB_SEARCH_TOOL.description equals 'Perform a full web research pipeline
+    (search, scrape, deduplicate, synthesize) and return a structured digest'
+  - WEB_SEARCH_TOOL.inputSchema is a valid JSON Schema object with
+    type:'object', properties.query (string, required), properties.max_results
+    (integer, default 5), properties.focus (string, optional), and
+    additionalProperties:false
+  - WEB_SEARCH_TOOL.inputSchema.required contains exactly ['query']
+  - WEB_FETCH_TOOL.name equals 'web_fetch'
+  - WEB_FETCH_TOOL.description equals 'Fetch and synthesize a specific URL into
+    a structured digest (scrape, synthesize)'
+  - WEB_FETCH_TOOL.inputSchema is a valid JSON Schema object with type:'object',
+    properties.url (string, format:'uri', required), properties.focus (string,
+    optional), and additionalProperties:false
+  - WEB_FETCH_TOOL.inputSchema.required contains exactly ['url']
+  - TOOL_DEFINITIONS is an array containing exactly [WEB_SEARCH_TOOL,
+    WEB_FETCH_TOOL]
+  - All exports use ESM import/export syntax
+  - File compiles under tsc strict mode with zero errors
+schemas:
+  - ToolDefinition
+  - WebSearchInputSchema
+  - WebFetchInputSchema
+files:
+  - src/modules/mcp-server/tool-definitions.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - Import Tool type from '@modelcontextprotocol/sdk/types.js'
+  - Define WEB_SEARCH_TOOL constant of type Tool with name 'web_search',
+    description as specified, and inputSchema as a JSON Schema draft 2020-12
+    object
+  - "Construct WEB_SEARCH_TOOL.inputSchema with { type:'object', properties:{
+    query:{type:'string',description:'The search query to research'},
+    max_results:{type:'integer',default:5,description:'Maximum number of search
+    results to process (default: 5)'},
+    focus:{type:'string',description:'Optional aspect to emphasize in the
+    synthesized digest'} }, required:['query'], additionalProperties:false }"
+  - Define WEB_FETCH_TOOL constant of type Tool with name 'web_fetch',
+    description as specified, and inputSchema
+  - Construct WEB_FETCH_TOOL.inputSchema with { type:'object', properties:{
+    url:{type:'string',format:'uri',description:'The URL to fetch, extract, and
+    synthesize'}, focus:{type:'string',description:'Optional aspect to emphasize
+    in the synthesized digest'} }, required:['url'], additionalProperties:false
+    }
+  - Define TOOL_DEFINITIONS = [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] as a readonly
+    array
+  - Export WEB_SEARCH_TOOL, WEB_FETCH_TOOL, TOOL_DEFINITIONS

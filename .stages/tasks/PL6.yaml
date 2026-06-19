@@ -1,0 +1,87 @@
+id: PL6
+title: Implement orchestrator entry functions
+description: >
+  Extend orchestrator.ts with the public runWebSearch and runWebFetch entry
+  functions.
+
+  These functions read PipelineConfig from the shared config singleton, create a
+  per-invocation
+
+  TimeoutGuard, delegate to the respective pipeline flow, enforce the overall
+  timeout boundary,
+
+  make the final throw-vs-return decision based on pipeline outcome, and emit
+  final summary logs.
+
+  The orchestrator is stateless across invocations.
+requirements:
+  - US-PL-001
+  - US-PL-002
+  - US-PL-004
+  - US-PL-005
+  - US-PL-012
+  - US-PL-013
+  - BG-PL-002
+  - NFR-PL-006
+  - DC-PL-002
+  - DC-PL-005
+acceptanceCriteria:
+  - "runWebSearch(params: WebSearchParams) reads PipelineConfig from appConfig,
+    creates a TimeoutGuard for pipelineTimeoutMs, and delegates to
+    executeWebSearchPipeline passing query, maxResults, focus, config, and the
+    abort signal"
+  - "runWebFetch(params: WebFetchParams) reads PipelineConfig, creates a
+    TimeoutGuard, and delegates to executeWebFetchPipeline passing url, focus,
+    config, and the abort signal"
+  - Both functions call timeoutGuard.cleanup() in a finally block to release
+    timer resources on every code path
+  - When the pipeline completes before the timeout, the timer is cancelled via
+    cleanup and resources are released
+  - When the overall timeout elapses, in-flight operations are cancelled via the
+    abort signal and the best partial result is returned or PipelineTimeoutError
+    is thrown
+  - Config values (maxConcurrency, scrapeTimeoutMs, maxContentChars,
+    pipelineTimeoutMs) are read from the shared config singleton which applies
+    documented defaults when env vars are unset or invalid
+  - The orchestrator holds no mutable state between invocations — each call
+    creates fresh TimeoutGuard and local variables
+  - Final summary log is emitted to stderr with outcome, total elapsed time, and
+    per-stage counts
+  - Both functions return Promise<string> on success/partial/degraded and throw
+    PipelineError or PipelineTimeoutError on hard failures
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+  - PipelineError
+  - PipelineTimeoutError
+files:
+  - src/modules/pipeline-orchestration/orchestrator.ts
+mode: extend
+dependsOn:
+  - BOOTSTRAP
+  - PL3
+  - PL4
+  - PL5
+category: service
+implementationSteps:
+  - Import appConfig (PipelineConfig singleton) from shared/config
+  - Import TimeoutGuard from ./timeout-guard, executeWebSearchPipeline from
+    ./web-search-pipeline, executeWebFetchPipeline from ./web-fetch-pipeline
+  - Import the stderr logger from shared/utils/logger
+  - "Implement runWebSearch(params: WebSearchParams): Promise<string>: validate
+    params (query non-empty), read config from appConfig.pipeline, create const
+    guard = new TimeoutGuard(config.pipelineTimeoutMs), record startTime, call
+    await executeWebSearchPipeline(query, maxResults, focus, config,
+    guard.signal) inside try, call guard.cleanup() in finally, log final summary
+    to stderr, return the digest string"
+  - "Implement runWebFetch(params: WebFetchParams): Promise<string>: validate
+    params (url non-empty), read config, create TimeoutGuard, record startTime,
+    call await executeWebFetchPipeline(url, focus, config, guard.signal) inside
+    try, call guard.cleanup() in finally, log final summary, return digest
+    string"
+  - Ensure no module-level mutable state exists — all state is local to each
+    function call
+  - Verify that when pipelineTimeoutMs is not set in environment, the default
+    30000 is applied via the shared config singleton (DC-PL-002 zero-config
+    defaults)

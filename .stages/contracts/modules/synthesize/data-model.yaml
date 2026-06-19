@@ -1,0 +1,108 @@
+schemas:
+  SynthesizeConfig:
+    fields:
+      apiKey:
+        type: string
+        required: true
+        description: "OpenAI-compatible API key. Must be non-empty."
+      baseUrl:
+        type: string
+        required: true
+        description: "LLM API base URL (e.g., https://api.openai.com/v1, http://localhost:11434/v1)"
+      model:
+        type: string
+        required: true
+        description: "Model identifier (e.g., gpt-4o-mini, llama3, qwen2:7b)"
+      timeoutMs:
+        type: integer
+        required: true
+        minimum: 1000
+        description: "HTTP timeout for LLM calls in milliseconds"
+      maxContextTokens:
+        type: integer
+        required: true
+        minimum: 1
+        description: "Maximum context window for the model in tokens"
+      safeThresholdRatio:
+        type: number
+        required: true
+        minimum: 0.1
+        maximum: 1.0
+        description: "Fraction of maxContextTokens considered safe (default: 0.8)"
+      maxBatchConcurrency:
+        type: integer
+        required: true
+        minimum: 1
+        maximum: 10
+        description: "Maximum concurrent LLM requests during batch-and-merge (default: 2)"
+
+  LLMResponse:
+    fields:
+      content:
+        type: string
+        required: true
+        description: "Raw text content from the LLM's choices[0].message.content"
+      promptTokens:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Token count reported by the API for the prompt (usage.prompt_tokens)"
+      completionTokens:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Token count reported by the API for the completion (usage.completion_tokens)"
+
+  LLMCallOptions:
+    fields:
+      temperature:
+        type: number
+        required: false
+        minimum: 0
+        maximum: 2
+        description: "Sampling temperature (default: 0.3 for factual synthesis)"
+      maxTokens:
+        type: integer
+        required: false
+        minimum: 1
+        description: "Maximum completion tokens (default: derived from model)"
+
+  RetryConfig:
+    fields:
+      maxRetries:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Maximum retry attempts for 429/5xx errors (default: 3)"
+      initialDelayMs:
+        type: integer
+        required: true
+        minimum: 100
+        description: "Initial retry delay in milliseconds (default: 1000)"
+      maxDelayMs:
+        type: integer
+        required: true
+        minimum: 1000
+        description: "Maximum retry delay cap in milliseconds (default: 10000)"
+      multiplier:
+        type: number
+        required: true
+        minimum: 1.0
+        description: "Exponential backoff multiplier (default: 2)"
+      timeoutRetries:
+        type: integer
+        required: true
+        minimum: 0
+        description: "Additional retries for timeout errors (default: 2)"
+
+  DigestResult:
+    ref: "shared:DigestResult"
+    description: "Shared type from src/shared/types/digest.ts — fields: answer (string, non-empty), keyPoints (string[], possibly empty), sources (SourceRef[], non-empty)"
+
+  SourceRef:
+    ref: "shared:SourceRef"
+    description: "Shared type from src/shared/types/digest.ts — fields: url (string), title (string)"
+
+  ContentItem:
+    ref: "shared:ContentItem"
+    description: "Shared type from src/shared/types/content.ts — fields: title (string), url (string), snippet (string), score (number 0-1), content (string), normalizedUrl (string, optional), mergedSources (string[], optional)"

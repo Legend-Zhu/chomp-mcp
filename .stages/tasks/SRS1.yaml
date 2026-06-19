@@ -1,0 +1,47 @@
+id: SRS1
+title: Define shared SearchResult and SearchOptions TypeScript interfaces
+description: >
+  Create the shared type definitions in src/shared/types/search.ts and re-export
+  from
+
+  src/shared/types/index.ts. These interfaces define the public contract
+  consumed by
+
+  downstream pipeline modules (scrape-extract, deduplicate, synthesize) and by
+  the
+
+  search-retrieval module itself. All code must use ESM import/export syntax and
+
+  compile under TypeScript strict mode with explicit type annotations.
+requirements:
+  - US-SR-012
+  - DC-SR-002
+  - DC-SR-003
+acceptanceCriteria:
+  - SearchResult interface is exported with fields title:string, url:string,
+    snippet:string, score:number
+  - SearchOptions interface is exported with optional fields maxResults?:number,
+    timeoutMs?:number, categories?:string
+  - Both interfaces are re-exported from src/shared/types/index.ts
+  - File uses ESM import/export syntax (no require)
+  - Code compiles under tsc --noEmit strict mode with zero errors
+schemas:
+  - SearchResult
+  - SearchOptions
+files:
+  - src/shared/types/search.ts
+  - src/shared/types/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - Create src/shared/types/search.ts defining SearchResult with title:string,
+    url:string, snippet:string, score:number
+  - Define SearchOptions with maxResults?:number, timeoutMs?:number,
+    categories?:string as optional fields
+  - Add explicit type annotations and JSDoc comments referencing the data-model
+    contract descriptions
+  - Update or create src/shared/types/index.ts to re-export all shared types
+    including search.ts
+  - Verify no CommonJS require syntax is used anywhere in the files

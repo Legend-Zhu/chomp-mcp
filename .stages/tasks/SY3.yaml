@@ -1,0 +1,58 @@
+id: SY3
+title: Prompt builder for system, user, single-source, and merge prompts
+description: >
+  Implement all prompt construction functions: buildSystemPrompt,
+  buildUserPrompt, buildSingleSourcePrompt,
+
+  and buildMergePrompt. These are pure functions that assemble well-structured
+  prompts for the LLM,
+
+  including the anti-hallucination directive for URLs, focus directives, and
+  source URL interleaving.
+requirements:
+  - US-SY-002
+  - US-SY-004
+acceptanceCriteria:
+  - buildSystemPrompt() returns a string instructing LLM to produce 'Answer',
+    'Key Points', and 'Sources' sections, be concise and factual, and NOT
+    hallucinate URLs
+  - buildUserPrompt(query, contents, focus?) interleaves each content block with
+    its source URL and title, and appends focus directive if provided
+  - buildUserPrompt includes explicit instruction to only cite URLs present in
+    provided content
+  - buildSingleSourcePrompt(query, url, title, content, focus?) constructs a
+    single-page summary prompt that prioritizes the focus aspect if provided
+  - buildMergePrompt(query, digests, focus?) returns an object with {
+    systemPrompt, userPrompt } for the merge LLM call, instructing
+    de-duplication of key points and merging of source lists
+  - All functions are pure with no side effects, no stdout output
+schemas:
+  - ContentItem
+  - DigestResult
+files:
+  - src/modules/synthesize/prompt-builder.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY1
+category: data
+implementationSteps:
+  - Import ContentItem and DigestResult types from shared types
+  - "Implement buildSystemPrompt(): return a multi-line string template that
+    instructs the LLM to: (a) produce a direct '## Answer' section, (b) list '##
+    Key Points' as bullet items, (c) include '## Sources' citing source URLs,
+    (d) be concise and factual, (e) NEVER hallucinate URLs — only cite URLs
+    present in the provided content"
+  - "Implement buildUserPrompt(query, contents, focus?): start with 'Query:
+    {query}', then for each content item append '---\\nSource: {url}\\nTitle:
+    {title}\\nContent:\\n{content}\\n', append focus directive line if focus is
+    provided (e.g., 'Please focus on: {focus}'), append final instruction to
+    cite only provided URLs"
+  - "Implement buildSingleSourcePrompt(query, url, title, content, focus?):
+    construct prompt for summarizing a single page — include the URL, title,
+    content, query context, and optional focus directive"
+  - "Implement buildMergePrompt(query, digests, focus?): return { systemPrompt,
+    userPrompt } where systemPrompt instructs merging intermediate digests by
+    de-duplicating key points and merging source lists, and userPrompt
+    serializes each intermediate DigestResult's answer + keyPoints + sources"
+  - Export all four functions

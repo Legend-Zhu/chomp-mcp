@@ -1,0 +1,112 @@
+id: MC4
+title: MCP Server Lifecycle and Stdio Transport
+description: >
+  Create server.ts implementing the MCP server lifecycle using
+  @modelcontextprotocol/sdk.
+
+  Provides createServer (configures Server with tools capability, registers
+  tools/list and
+
+  tools/call handlers), startServer (creates StdioServerTransport, connects,
+  registers signal
+
+  handlers), and shutdown (graceful close with 5s grace period for in-flight
+  calls). Handles
+
+  stdin-close, SIGTERM, SIGINT. All diagnostics go to stderr — stdout is
+  reserved for
+
+  StdioServerTransport JSON-RPC only.
+requirements:
+  - US-MC-001
+  - US-MC-002
+  - US-MC-005
+  - US-MC-013
+  - US-MC-014
+  - BG-MC-001
+  - BG-MC-002
+  - BG-MC-003
+  - NFR-MC-001
+  - NFR-MC-002
+  - NFR-MC-003
+  - NFR-MC-005
+  - NFR-MC-006
+  - DC-MC-001
+  - DC-MC-002
+  - DC-MC-004
+  - DC-MC-007
+acceptanceCriteria:
+  - createServer({handlers}) returns a Server instance from
+    @modelcontextprotocol/sdk with serverInfo.name 'chomp-mcp' and version
+    '1.0.0'
+  - createServer declares tools capability in server capabilities
+  - createServer registers tools/list handler that returns TOOL_DEFINITIONS
+    (exactly web_search and web_fetch)
+  - createServer registers tools/call handler that delegates to dispatchToolCall
+    with the injected handlers
+  - createServer does NOT connect transport — only startServer does that
+  - startServer creates StdioServerTransport, connects it to the Server, and
+    logs '[mcp-server] listening on stdio' to stderr
+  - startServer registers SIGTERM handler that logs '[mcp-server] received
+    SIGTERM, shutting down' and calls shutdown
+  - startServer registers SIGINT handler that behaves identically to SIGTERM
+  - startServer sets transport onclose callback to exit with code 0 on stdin
+    close
+  - shutdown waits up to 5000ms for in-flight tool calls to complete before
+    forcing exit
+  - shutdown exits with code 0
+  - The initialize handshake responds with protocolVersion, server name
+    'chomp-mcp', and version
+  - Malformed JSON-RPC messages are handled by the SDK without crashing the
+    server
+  - Unrecognized JSON-RPC methods return error code -32601 (Method not found)
+    via SDK
+  - No console.log or process.stdout.write calls anywhere — all output via log.*
+    to stderr or via StdioServerTransport
+  - File compiles under tsc strict mode with zero errors
+schemas:
+  - CreateServerOptions
+  - ServerInfo
+files:
+  - src/modules/mcp-server/server.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - MC2
+  - MC3
+category: service
+implementationSteps:
+  - Import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+  - Import { StdioServerTransport } from
+    '@modelcontextprotocol/sdk/server/stdio.js'
+  - Import { ListToolsRequestSchema, CallToolRequestSchema } from
+    '@modelcontextprotocol/sdk/types.js'
+  - Import { TOOL_DEFINITIONS } from './tool-definitions.js'
+  - Import { dispatchToolCall, OrchestrationHandlers } from './tool-handlers.js'
+  - Import { log } from '../../shared/utils/logger.js'
+  - Define SHUTDOWN_GRACE_PERIOD_MS = 5000 constant
+  - Define a module-level activeToolCalls counter (number) to track in-flight
+    dispatches
+  - "Define CreateServerOptions interface: { handlers: OrchestrationHandlers;
+    serverName?: string; serverVersion?: string }"
+  - "Implement createServer(options: CreateServerOptions): Server — create new
+    Server({ name: options.serverName ?? 'chomp-mcp', version:
+    options.serverVersion ?? '1.0.0' }, { capabilities: { tools: {} } });
+    register.setRequestHandler(ListToolsRequestSchema, async () => ({ tools:
+    TOOL_DEFINITIONS })); register.setRequestHandler(CallToolRequestSchema,
+    async (request) => { increment activeToolCalls; try { return await
+    dispatchToolCall(request.params.name, request.params.arguments ?? {},
+    options.handlers); } finally { decrement activeToolCalls; } }); return
+    server"
+  - "Implement async startServer(server: Server): Promise<void> — create
+    transport = new StdioServerTransport(); set transport.onclose = () =>
+    process.exit(0); register process.on('SIGTERM', () => {
+    log.info('[mcp-server] received SIGTERM, shutting down'); void
+    shutdown(server); }); register process.on('SIGINT', () => {
+    log.info('[mcp-server] received SIGTERM, shutting down'); void
+    shutdown(server); }); await server.connect(transport);
+    log.info('[mcp-server] listening on stdio')"
+  - "Implement async shutdown(server: Server): Promise<void> — poll
+    activeToolCalls every 100ms up to SHUTDOWN_GRACE_PERIOD_MS; once zero or
+    timeout reached, call server.close() or transport.close(); process.exit(0)"
+  - Export createServer, startServer, shutdown, CreateServerOptions

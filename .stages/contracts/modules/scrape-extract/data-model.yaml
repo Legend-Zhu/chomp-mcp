@@ -1,0 +1,89 @@
+schemas:
+  ScrapeResult:
+    fields:
+      success: { type: boolean, required: true, description: "true if content was extracted successfully; false on any failure" }
+      url: { type: string, required: true, description: "The original input URL" }
+      finalUrl: { type: string, required: false, nullable: true, description: "Final URL after all redirects; null on failure before any fetch response" }
+      title: { type: string, required: false, nullable: true, description: "Extracted page title; null on failure" }
+      textContent: { type: string, required: false, nullable: true, description: "Clean extracted text content; null on failure. When success is true, guaranteed non-null and non-empty (>= 1 char)" }
+      extractionMethod: { type: string, required: false, nullable: true, enum: ExtractionMethod, description: "Method used for extraction; null on failure" }
+      truncated: { type: boolean, required: true, description: "true if text was truncated at MAX_CONTENT_CHARS; always false on failure" }
+      contentLength: { type: integer, required: true, minimum: 0, description: "Character count of the final post-truncation textContent; 0 on failure" }
+      elapsedMs: { type: integer, required: true, minimum: 0, description: "Wall-clock elapsed time in milliseconds from scrape start to completion" }
+      error: { type: string, required: false, nullable: true, description: "Human-readable error message; null on success; non-empty string on failure" }
+
+  ScrapeOptions:
+    fields:
+      timeoutMs: { type: integer, required: false, minimum: 0, description: "Override SCRAPE_TIMEOUT_MS for this call" }
+      maxContentChars: { type: integer, required: false, description: "Override MAX_CONTENT_CHARS for this call" }
+
+  ScrapeConfig:
+    fields:
+      timeoutMs: { type: integer, required: true, minimum: 1, default: 15000, description: "Per-fetch timeout in ms (env SCRAPE_TIMEOUT_MS)" }
+      maxContentChars: { type: integer, required: true, default: 8000, description: "Maximum extracted text length in characters (env MAX_CONTENT_CHARS). 0 or negative disables truncation" }
+      maxRedirects: { type: integer, required: true, minimum: 0, default: 5, description: "Maximum HTTP redirect hops" }
+      minContentChars: { type: integer, required: true, minimum: 1, default: 200, description: "Threshold for Readability success; below this triggers Puppeteer fallback" }
+      maxTotalTimeoutMs: { type: integer, required: true, minimum: 1, description: "Total scrape timeout including fallback (computed as timeoutMs x 2)" }
+
+  FetchResult:
+    fields:
+      success: { type: boolean, required: true, description: "true if a usable HTTP response was received (2xx status)" }
+      statusCode: { type: integer, required: true, minimum: 0, description: "HTTP status code; 0 if no response received" }
+      statusText: { type: string, required: true, description: "HTTP status text or error message" }
+      contentType: { type: string, required: false, nullable: true, description: "Value of Content-Type response header; null if missing" }
+      bodyBytes: { type: string, required: false, nullable: true, description: "Raw response body bytes (binary); null on fetch failure" }
+      finalUrl: { type: string, required: false, nullable: true, description: "Final URL after redirect chain; null if no response" }
+      redirectCount: { type: integer, required: true, minimum: 0, description: "Number of redirects followed" }
+      error: { type: string, required: false, nullable: true, description: "Error message if success is false; null otherwise" }
+      retryAfterMs: { type: integer, required: false, nullable: true, minimum: 0, description: "Value parsed from Retry-After header in ms; null if absent" }
+
+  ExtractionOutput:
+    fields:
+      title: { type: string, required: true, description: "Extracted page title; may be empty string" }
+      textContent: { type: string, required: true, description: "Extracted plain text" }
+      extractionMethod: { type: string, required: true, enum: ExtractionMethod, description: "readability if >= 200 chars, readability-failed if < 200 chars" }
+      charCount: { type: integer, required: true, minimum: 0, description: "Character count of textContent" }
+
+  RenderResult:
+    fields:
+      success: { type: boolean, required: true, description: "true if browser launched and page rendered successfully" }
+      html: { type: string, required: false, nullable: true, description: "Rendered HTML source; null on failure" }
+      error: { type: string, required: false, nullable: true, description: "Error message; null on success" }
+
+  ContentTypeResult:
+    fields:
+      kind: { type: string, required: true, enum: ContentTypeKind, description: "Detected content category" }
+      textContent: { type: string, required: false, nullable: true, description: "Extracted text for non-HTML types; null for HTML (requires further Readability extraction)" }
+      extractionMethod: { type: string, required: false, nullable: true, enum: ExtractionMethod, description: "Set for non-HTML types; null for HTML" }
+      error: { type: string, required: false, nullable: true, description: "Error message for binary/unsupported types; null otherwise" }
+
+  ValidationResult:
+    fields:
+      valid: { type: boolean, required: true, description: "true if URL passes all checks" }
+      error: { type: string, required: false, nullable: true, description: "Error message if valid is false; null otherwise" }
+
+  TruncationResult:
+    fields:
+      text: { type: string, required: true, description: "Truncated or original text" }
+      truncated: { type: boolean, required: true, description: "true if text was shortened" }
+
+  enums:
+    ExtractionMethod:
+      values:
+        - readability
+        - readability-failed
+        - puppeteer
+        - json
+        - xml
+        - raw-text
+      description: "Method used to extract content from the fetched page"
+
+    ContentTypeKind:
+      values:
+        - html
+        - json
+        - xml
+        - text
+        - binary
+        - unsupported
+      description: "Detected content category from Content-Type header or byte sniffing"

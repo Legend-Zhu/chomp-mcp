@@ -1,0 +1,52 @@
+id: PL8
+title: Test timeout guard and concurrency limiter
+description: >
+  Create unit tests for the TimeoutGuard and ConcurrencyLimiter utilities.
+  Verify timer-based
+
+  abort behavior, cleanup idempotency, signal propagation, concurrency ceiling
+  enforcement,
+
+  and abort-aware queue rejection.
+requirements:
+  - US-PL-003
+  - US-PL-004
+  - US-PL-005
+  - US-PL-015
+  - BG-PL-003
+  - NFR-PL-003
+  - NFR-PL-005
+acceptanceCriteria:
+  - timeout-guard.test.ts verifies that the signal becomes aborted after the
+    configured timeout elapses
+  - timeout-guard.test.ts verifies that cleanup() prevents the timer from firing
+  - timeout-guard.test.ts verifies that cleanup() is idempotent (no error on
+    double call)
+  - timeout-guard.test.ts verifies that cleanup after abort is a safe no-op
+  - concurrency-limiter.test.ts verifies that no more than maxConcurrency
+    operations run simultaneously
+  - concurrency-limiter.test.ts verifies that release() allows the next queued
+    operation to proceed
+  - concurrency-limiter.test.ts verifies that an already-aborted signal causes
+    acquire() to reject immediately
+  - All tests pass under the test runner
+schemas: []
+files:
+  - tests/modules/pipeline-orchestration/timeout-guard.test.ts
+  - tests/modules/pipeline-orchestration/concurrency-limiter.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL1
+  - PL2
+category: test
+implementationSteps:
+  - "[object Object]"
+  - Test that calling cleanup() immediately after creation prevents the abort
+    from firing
+  - Test that calling cleanup() twice does not throw
+  - Test that calling cleanup() after the timer has already fired is a safe no-op
+  - "[object Object]"
+  - Test that acquire() blocks when at capacity and resolves after release()
+  - Test that passing an already-aborted AbortSignal to acquire() rejects
+    immediately without waiting

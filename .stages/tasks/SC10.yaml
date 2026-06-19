@@ -1,0 +1,36 @@
+id: SC10
+title: Module public API index exports
+description: >
+  Create index.ts as the module's public API surface. Exports the scrape()
+  function and
+
+  re-exports ScrapeResult, ExtractionMethod, ScrapeOptions types from shared
+  types for
+
+  downstream consumers. This file is the single import point for the Pipeline
+  Orchestration
+
+  (PL) module.
+requirements:
+  - DC-SC-006
+acceptanceCriteria:
+  - index.ts exports scrape function from ./scraper
+  - index.ts re-exports ScrapeResult and ExtractionMethod types from
+    ../../shared/types/scrape
+  - index.ts re-exports ScrapeOptions and ScrapeConfig types from ./types
+  - All exports use ESM export syntax
+  - The module compiles under tsc strict mode with zero errors
+schemas:
+  - ScrapeResult
+files:
+  - src/modules/scrape-extract/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC9
+category: entry
+implementationSteps:
+  - Export { scrape } from './scraper'
+  - Export type { ScrapeResult, ExtractionMethod } from
+    '../../shared/types/scrape'
+  - Export type { ScrapeOptions, ScrapeConfig } from './types'

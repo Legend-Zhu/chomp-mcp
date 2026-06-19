@@ -1,0 +1,40 @@
+id: DD6
+title: Similarity computer — Jaccard coefficient on fingerprint sets
+description: >
+  Implement `src/modules/deduplicate/similarity-computer.ts` with the
+  `jaccardSimilarity` function.
+
+  Computes |A ∩ B| / |A ∪ B| by iterating over the smaller set for intersection
+  counting (O(min(|A|, |B|))).
+
+  Returns 1.0 for identical sets, 0.0 for disjoint sets, and 0.0 when both sets
+  are empty.
+requirements:
+  - US-DD-006
+  - NFR-DD-002
+acceptanceCriteria:
+  - jaccardSimilarity returns |intersection| / |union| for two Set<number> inputs
+  - Returns 1.0 when both sets are identical
+  - Returns 0.0 when sets are disjoint (no common elements)
+  - Returns 0.0 when both sets are empty
+  - Iterates over the smaller set for intersection counting to achieve
+    O(min(|A|, |B|)) complexity
+  - Result is always in the range [0.0, 1.0]
+  - Function is pure with no side effects or network calls
+schemas: []
+files:
+  - src/modules/deduplicate/similarity-computer.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD2
+category: service
+implementationSteps:
+  - Implement jaccardSimilarity(setA, setB) with Set<number> params and number
+    return type
+  - If both sets are empty, return 0.0
+  - Determine smaller and larger set; iterate over smaller, count elements
+    present in larger
+  - Compute intersection count, then return intersection / (sizeA + sizeB -
+    intersection)
+  - Ensure result is clamped to [0.0, 1.0]

@@ -1,0 +1,52 @@
+interfaces:
+  PipelineOrchestration:
+    exports:
+      - name: runWebSearch
+        params:
+          - params: WebSearchParams
+        returns: string
+        description: "Executes the full web_search pipeline (Search→Scrape→Deduplicate→Synthesize). Reads PipelineConfig, creates AbortController-based timeout guard, then sequentially calls SR.search with query and maxResults, dispatches SC.scrape concurrently up to maxConcurrency passing the abort signal, filters successful scrapes into ContentItem[], calls DD.deduplicate on the filtered items, then calls SY.synthesize with query, deduplicated items, and focus. Returns formatted digest string on success, partial, or degraded outcome. Throws PipelineError when search stage fails (US-PL-010), all scrapes fail with zero content (US-PL-011), or all results are empty/invalid. Throws PipelineTimeoutError when overall PIPELINE_TIMEOUT_MS elapses during scrape stage with no partial content. On synthesis failure, returns degraded fallback string with concatenated excerpts and notice (US-PL-008). Emits structured StageLog entries to stderr at each stage boundary."
+
+      - name: runWebFetch
+        params:
+          - params: WebFetchParams
+        returns: string
+        description: "Executes the web_fetch sub-flow (Scrape→Synthesize). Creates AbortController-based timeout guard, calls SC.scrape with the target URL, then calls SY.synthesizeSingle with url, title, content, and focus. Returns formatted digest string on success or degraded fallback. Throws PipelineError when scrape fails with HTTP 4xx/5xx (US-PL-007), DNS/connection error, or when content is empty and synthesis also fails (US-PL-009). Throws PipelineTimeoutError when overall PIPELINE_TIMEOUT_MS elapses during scrape stage. On timeout during synthesis with scrape completed, returns truncated scraped content as graceful degradation fallback instead of throwing (US-PL-005). On synthesis failure with content available, returns degraded fallback with truncated content and notice (US-PL-009)."
+
+      - name: createPipelineError
+        params:
+          - message: string
+          - category: string
+          - failedUrls: array
+        returns: PipelineError
+        description: "Factory function constructing a PipelineError instance. category is one of http_error, timeout, network, parse_error, validation, config. failedUrls is an optional array of FailedUrl objects for diagnostic context. Used internally and by callers to wrap hard failures that should be surfaced as isError:true by MC."
+
+      - name: createPipelineTimeoutError
+        params:
+          - message: string
+          - timeoutMs: integer
+          - failedUrls: array
+        returns: PipelineTimeoutError
+        description: "Factory function constructing a PipelineTimeoutError instance. timeoutMs is the PIPELINE_TIMEOUT_MS value that was exceeded. category is always set to timeout. Used when overall pipeline timeout elapses and no partial content is available to degrade gracefully."
+
+    imports:
+      - from: SearchRetrieval
+        functions:
+          - search
+        description: "search(query: string, options: SearchOptions): Promise<SearchResult[]> — retrieves SearchResult[] from SearXNG. PL calls this as the first stage of the web_search pipeline, passing query and maxResults. Returns array of SearchResult objects with title, url, snippet, score fields. PL checks for empty/invalid results and treats zero usable URLs as a search failure (US-PL-010)."
+
+      - from: ScrapeExtract
+        functions:
+          - scrape
+        description: "scrape(url: string, options: ScrapeOptions): Promise<ScrapeResult> — extracts page content from a single URL. PL calls this concurrently up to maxConcurrency in the web_search pipeline (passing ScrapeOptions.signal for abort propagation) and once in the web_fetch sub-flow. Returns ScrapeResult with success, url, finalUrl, title, textContent, extractionMethod, truncated, contentLength, elapsedMs, error fields. PL isolates individual failures (US-PL-006) and maps successful results to ContentItem objects."
+
+      - from: Deduplicate
+        functions:
+          - deduplicate
+        description: "deduplicate(items: ContentItem[]): Promise<ContentItem[]> — filters near-duplicate content items. PL calls this as the third stage of the web_search pipeline with the array of successfully scraped ContentItem objects. Returns a filtered ContentItem[] with duplicates removed. PL checks if all items were filtered out and returns a message if so (US-PL-011)."
+
+      - from: Synthesize
+        functions:
+          - synthesize
+          - synthesizeSingle
+        description: "synthesize(query: string, contentItems: ContentItem[], focus?: string): Promise<DigestResult> — synthesizes a DigestResult from multiple deduplicated sources. PL calls this as the final stage of the web_search pipeline. Returns DigestResult with answer, keyPoints, sources fields. On failure, PL constructs degraded fallback from raw content (US-PL-008). synthesizeSingle(url: string, title: string, content: string, focus?: string): Promise<DigestResult> — synthesizes a DigestResult from a single page. PL calls this in the web_fetch sub-flow after successful scrape. On failure, PL returns truncated content as degraded fallback (US-PL-009)."

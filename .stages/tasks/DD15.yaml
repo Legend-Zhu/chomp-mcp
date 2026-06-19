@@ -1,0 +1,45 @@
+id: DD15
+title: Tests — content merger
+description: >
+  Implement `tests/modules/deduplicate/content-merger.test.ts` covering
+  deduplicateByUrl,
+
+  deduplicateExactContent, and mergeNearDuplicates including transitive grouping
+  via union-find,
+
+  score-based tie-breaking, and mergedSources URL copying.
+requirements:
+  - US-DD-003
+  - US-DD-007
+  - US-DD-008
+  - NFR-DD-003
+  - NFR-DD-004
+acceptanceCriteria:
+  - Tests deduplicateByUrl retains highest-scored item per URL group
+  - Tests deduplicateByUrl tie-break favors earliest originalIndex
+  - Tests deduplicateExactContent groups identical fingerprint sets and retains
+    best
+  - Tests deduplicateExactContent copies discarded URLs to mergedSources
+  - Tests mergeNearDuplicates merges items with similarity >= threshold
+  - Tests mergeNearDuplicates transitive grouping (A~B, B~C → one group)
+  - Tests mergeNearDuplicates retains highest score per group
+  - Tests mergeNearDuplicates copies discarded URLs to mergedSources
+  - Tests non-duplicate items are not incorrectly merged (no false positives)
+schemas:
+  - FingerprintedItem
+files:
+  - tests/modules/deduplicate/content-merger.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD7
+category: test
+implementationSteps:
+  - Import deduplicateByUrl, deduplicateExactContent, mergeNearDuplicates
+  - Create helper to build FingerprintedItem test fixtures with known scores,
+    URLs, fingerprints, and originalIndex
+  - Write test for URL dedup with same normalizedUrl, different scores
+  - Write test for exact-content dedup with identical fingerprint sets
+  - Write test for near-dup merge with threshold and verify grouping +
+    mergedSources
+  - Write test for transitive near-dup grouping via union-find

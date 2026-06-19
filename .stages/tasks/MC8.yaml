@@ -1,0 +1,64 @@
+id: MC8
+title: Integration Tests for Server Lifecycle and Transport
+description: >
+  Create test file for server.ts covering createServer configuration (tools
+  capability, handler
+
+  registration), startServer stdio transport connection, shutdown grace period
+  behavior, and
+
+  signal handling. Tests use in-memory or mock transport to avoid real process
+  spawning where
+
+  possible. Verifies serverInfo, capabilities, and tools/list response.
+requirements:
+  - US-MC-001
+  - US-MC-002
+  - US-MC-005
+  - US-MC-013
+  - US-MC-014
+  - BG-MC-001
+  - BG-MC-003
+  - NFR-MC-001
+  - NFR-MC-002
+  - NFR-MC-003
+acceptanceCriteria:
+  - createServer returns a Server instance with correct serverInfo name
+    'web-research' and version '1.0.0'
+  - createServer declares tools capability
+  - tools/list handler returns exactly 2 tools (web_search and web_fetch)
+  - tools/call handler delegates to dispatchToolCall with injected handlers
+  - startServer connects StdioServerTransport and logs '[mcp-server] listening
+    on stdio'
+  - startServer registers SIGTERM and SIGINT handlers
+  - shutdown allows in-flight calls up to 5000ms before exit
+  - No console.log calls anywhere in server.ts (verified by code inspection or
+    spy)
+  - All tests pass under vitest
+schemas:
+  - CreateServerOptions
+  - ServerInfo
+files:
+  - tests/modules/mcp-server/server.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - MC4
+category: test
+implementationSteps:
+  - Import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+  - Import { createServer, startServer, shutdown } from
+    '../../../src/modules/mcp-server/server.js'
+  - Create mock OrchestrationHandlers for injection
+  - Write describe('createServer') verifying returned Server instance
+    serverInfo, capabilities, and that tools/list returns 2 tools
+  - Write test verifying tools/call handler calls dispatchToolCall with provided
+    arguments
+  - Write describe('startServer') — mock or stub StdioServerTransport connect;
+    verify log output '[mcp-server] listening on stdio'; verify SIGTERM/SIGINT
+    handlers are registered via process.on spy
+  - Write describe('shutdown') — set activeToolCalls to simulate in-flight;
+    verify grace period polling; verify process.exit is called with 0
+  - Mock process.exit, process.on, and transport.connect using vi.spyOn to
+    prevent real process termination
+  - Restore all mocks in afterEach

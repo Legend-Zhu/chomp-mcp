@@ -1,0 +1,68 @@
+id: PL3
+title: Define PL types, error classes, and digest formatter
+description: >
+  Create the foundational type definitions and error classes for the
+  pipeline-orchestration module.
+
+  Defines WebSearchParams and WebFetchParams interfaces, PipelineError and
+  PipelineTimeoutError
+
+  classes (extending shared AppError), factory functions createPipelineError and
+  createPipelineTimeoutError,
+
+  and a digest formatting utility that renders a DigestResult into a text
+  string. These are defined in
+
+  orchestrator.ts as the module's top-level file; subsequent tasks extend this
+  file with entry functions.
+requirements:
+  - US-PL-014
+  - DC-PL-001
+acceptanceCriteria:
+  - WebSearchParams interface is defined with query (string, required),
+    maxResults (number, optional), focus (string, optional)
+  - WebFetchParams interface is defined with url (string, required), focus
+    (string, optional)
+  - PipelineError class extends shared AppError with name set to PipelineError,
+    message, category (ErrorCategory), and optional failedUrls (FailedUrl[])
+  - PipelineTimeoutError class extends PipelineError with name set to
+    PipelineTimeoutError, category always timeout, and timeoutMs (number) field
+  - createPipelineError(message, category, failedUrls?) returns a PipelineError
+    instance
+  - createPipelineTimeoutError(message, timeoutMs, failedUrls?) returns a
+    PipelineTimeoutError instance with category timeout
+  - "formatDigest(digest: DigestResult): string renders Answer, Key Points, and
+    Sources sections into a readable text block"
+  - All inter-module data structures use typed interfaces imported from
+    shared/types
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+  - PipelineError
+  - PipelineTimeoutError
+files:
+  - src/modules/pipeline-orchestration/orchestrator.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - Import AppError and ErrorCategory from shared/utils/errors, and
+    DigestResult/FailedUrl/PipelineConfig types from shared/types
+  - "Define WebSearchParams interface with query: string, maxResults?: number,
+    focus?: string"
+  - "Define WebFetchParams interface with url: string, focus?: string"
+  - "Define PipelineError class extending AppError: constructor sets this.name =
+    'PipelineError', accepts message, category (ErrorCategory), and optional
+    failedUrls array"
+  - "Define PipelineTimeoutError class extending PipelineError: constructor sets
+    this.name = 'PipelineTimeoutError', category = 'timeout', adds timeoutMs
+    field"
+  - "Implement createPipelineError(message: string, category: ErrorCategory,
+    failedUrls?: FailedUrl[]): PipelineError factory"
+  - "Implement createPipelineTimeoutError(message: string, timeoutMs: number,
+    failedUrls?: FailedUrl[]): PipelineTimeoutError factory"
+  - "Implement formatDigest(digest: DigestResult): string that produces a text
+    block with an Answer section, bulleted Key Points, and a numbered Sources
+    list with URLs and titles"

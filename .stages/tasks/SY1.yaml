@@ -1,0 +1,76 @@
+id: SY1
+title: Synthesize types, config, and error classes
+description: >
+  Define all internal TypeScript interfaces, configuration types, and error
+  classes for the synthesize module.
+
+  This file is the foundational type layer that every other synthesize source
+  file depends on.
+
+  Includes SynthesizeConfig, LLMResponse, LLMCallOptions, RetryConfig, and the
+  full hierarchy of
+
+  LLM error classes (LLMConfigError, LLMAuthError, LLMTimeoutError,
+  LLMRateLimitError, LLMServerError,
+
+  LLMResponseError, LLMNetworkError). All error classes extend AppError from
+  src/shared/utils/errors.ts.
+requirements:
+  - US-SY-001
+  - DC-SY-004
+  - NFR-SY-002
+  - NFR-SY-003
+acceptanceCriteria:
+  - SynthesizeConfig interface is exported with all 7 fields (apiKey, baseUrl,
+    model, timeoutMs, maxContextTokens, safeThresholdRatio, maxBatchConcurrency)
+    explicitly typed
+  - LLMResponse interface is exported with content (string), promptTokens
+    (integer), completionTokens (integer)
+  - LLMCallOptions interface is exported with optional temperature (default 0.3)
+    and maxTokens (integer)
+  - RetryConfig interface is exported with maxRetries, initialDelayMs,
+    maxDelayMs, multiplier, timeoutRetries
+  - All 7 error classes are exported and each extends AppError from
+    src/shared/utils/errors.ts with appropriate category strings (config,
+    http_error, timeout, network, parse_error)
+  - File imports DigestResult, SourceRef from src/shared/types/digest.ts and
+    ContentItem from src/shared/types/content.ts as re-exports for internal use
+  - Code compiles under TypeScript strict mode with zero errors
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - LLMCallOptions
+  - RetryConfig
+files:
+  - src/modules/synthesize/types.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: config
+implementationSteps:
+  - Import AppError from ../../shared/utils/errors.ts
+  - Import DigestResult and SourceRef from ../../shared/types/digest.ts and
+    ContentItem from ../../shared/types/content.ts
+  - Define and export the SynthesizeConfig interface with apiKey, baseUrl, model
+    (strings), timeoutMs, maxContextTokens, maxBatchConcurrency (integers),
+    safeThresholdRatio (number)
+  - Define and export the LLMResponse interface with content (string),
+    promptTokens (integer), completionTokens (integer)
+  - Define and export the LLMCallOptions interface with optional temperature
+    (number) and maxTokens (integer)
+  - Define and export the RetryConfig interface with maxRetries, initialDelayMs,
+    maxDelayMs (integers), multiplier (number), timeoutRetries (integer)
+  - Define a type alias OpenAIClient for the openai client instance to avoid
+    importing the full SDK type (use 'any' or a minimal interface to keep it
+    OpenAI-agnostic per DC-SY-001)
+  - Define and export LLMConfigError extending AppError with category 'config'
+  - Define and export LLMAuthError extending AppError with category 'http_error'
+  - Define and export LLMTimeoutError extending AppError with category 'timeout'
+  - Define and export LLMRateLimitError extending AppError with category
+    'http_error'
+  - Define and export LLMServerError extending AppError with category
+    'http_error'
+  - Define and export LLMResponseError extending AppError with category
+    'parse_error'
+  - Define and export LLMNetworkError extending AppError with category 'network'
+  - Ensure all error classes call super(message, category) in their constructors

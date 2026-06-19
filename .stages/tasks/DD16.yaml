@@ -1,0 +1,74 @@
+id: DD16
+title: Tests — deduplicator end-to-end pipeline
+description: >
+  Implement `tests/modules/deduplicate/deduplicator.test.ts` covering the full
+  `deduplicate` pipeline:
+
+  empty input, single item, multi-item with duplicates at each level (URL,
+  exact-content, near-dup),
+
+  error resilience (malformed URL, empty content), output field validation
+  (normalizedUrl, mergedSources,
+
+  fingerprintCount), determinism, pure-function immutability, and stats summary
+  logging.
+requirements:
+  - US-DD-009
+  - US-DD-010
+  - US-DD-011
+  - BG-DD-001
+  - BG-DD-002
+  - BG-DD-003
+  - NFR-DD-001
+  - NFR-DD-003
+  - NFR-DD-004
+  - NFR-DD-007
+  - DC-DD-001
+  - DC-DD-003
+acceptanceCriteria:
+  - Tests empty input array returns empty array
+  - Tests single-item input returns that item normalized with no pairwise
+    comparison
+  - Tests multi-item input with URL duplicates removes extras and retains
+    highest score
+  - Tests multi-item input with near-duplicate content merges correctly
+  - Tests output items have normalizedUrl, mergedSources (string[]), and
+    fingerprintCount (integer)
+  - Tests items with empty content are removed with warning
+  - Tests items causing exceptions are caught, logged, and skipped without
+    aborting
+  - Tests input array and objects are not mutated
+  - Tests output is deterministic across repeated calls with same input
+  - Tests config override via DDConfig parameter works
+  - Tests that duplicate reduction ratio meets target on typical multi-source
+    data (>= 30% reduction)
+  - Tests that false-positive merge rate is low (< 2%) for distinct content
+  - Tests processing completes under 500ms for 5-8 items
+schemas:
+  - DeduplicatedItem
+  - DDConfig
+  - DedupStats
+files:
+  - tests/modules/deduplicate/deduplicator.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD9
+  - DD10
+category: test
+implementationSteps:
+  - Import deduplicate from index or deduplicator
+  - Write test for empty input → empty output
+  - Write test for single item → single item with normalizedUrl
+  - Write test for URL-duplicate items → one retained, highest score
+  - Write test for content-near-duplicate items → merged with mergedSources
+    populated
+  - Write test for empty-content item removal
+  - Write test for malformed URL error handling (item skipped, others continue)
+  - Write test verifying input immutability (deep clone input, compare after
+    call)
+  - Write test for determinism (call twice, compare outputs)
+  - Write test for config override with custom similarityThreshold and
+    minParagraphChars
+  - Write test measuring duplicate reduction ratio on a representative dataset
+  - Write test for latency on 5-8 items asserting < 500ms

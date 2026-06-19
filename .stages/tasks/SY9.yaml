@@ -1,0 +1,43 @@
+id: SY9
+title: Synthesize module public exports (index.ts)
+description: >
+  Create the barrel index.ts that re-exports the public API of the synthesize
+  module for consumption
+
+  by the Pipeline Orchestration layer. Exports synthesize, synthesizeSingle, and
+  optionally
+
+  createLLMClient and verifyLLMConnectivity for startup health checks.
+requirements:
+  - US-SY-001
+  - US-SY-003
+  - US-SY-004
+  - DC-SY-004
+acceptanceCriteria:
+  - index.ts exports synthesize and synthesizeSingle from synthesizer.ts
+  - index.ts exports createLLMClient and verifyLLMConnectivity from
+    llm-client.ts for startup health checks
+  - "index.ts re-exports key types: SynthesizeConfig, LLMResponse, DigestResult,
+    SourceRef, ContentItem for consumer convenience"
+  - File compiles under TypeScript strict mode with zero errors
+  - No stdout output from this file
+schemas:
+  - SynthesizeConfig
+  - DigestResult
+  - ContentItem
+files:
+  - src/modules/synthesize/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY6
+  - SY8
+category: entry
+implementationSteps:
+  - Export { synthesize, synthesizeSingle } from './synthesizer.js'
+  - Export { createLLMClient, verifyLLMConnectivity, callLLMWithRetry } from
+    './llm-client.js'
+  - Export type { SynthesizeConfig, LLMResponse, LLMCallOptions, RetryConfig }
+    from './types.js'
+  - Re-export DigestResult, SourceRef from ../../shared/types/digest.js
+  - Re-export ContentItem from ../../shared/types/content.js

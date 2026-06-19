@@ -1,0 +1,39 @@
+id: DD8
+title: Stats accumulator — DedupStats creation and stderr summary logging
+description: >
+  Implement `src/modules/deduplicate/stats.ts` with `createDedupStats` and
+  `logStats`. createDedupStats
+
+  returns a fresh DedupStats object with all fields zeroed. logStats emits a
+  structured single-line
+
+  summary to stderr containing input count, exact-URL-dups removed,
+  exact-content-dups removed,
+
+  near-dups removed, empty removed, errors, output count, and elapsed time. Uses
+  the shared stderr
+
+  logger. Logs even when all counts are zero.
+requirements:
+  - US-DD-009
+  - NFR-DD-003
+acceptanceCriteria:
+  - createDedupStats returns an object with all 8 fields set to 0
+  - logStats emits a single structured line to stderr with all 8 stat fields
+  - logStats format includes input, url_dups_removed, content_dups_removed,
+    near_dups_removed, empty_removed, errors, output, elapsed
+  - logStats outputs the summary even when all counts are zero
+  - Logging goes to stderr only (never stdout)
+schemas:
+  - DedupStats
+files:
+  - src/modules/deduplicate/stats.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD2
+category: service
+implementationSteps:
+  - Import DedupStats from types.ts and the shared log utility
+  - "[object Object]"
+  - "[object Object]"

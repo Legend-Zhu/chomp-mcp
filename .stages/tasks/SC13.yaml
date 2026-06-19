@@ -1,0 +1,82 @@
+id: SC13
+title: Integration tests for the scrape orchestrator
+description: >
+  Write scraper.test.ts as the integration test for the full scrape() flow.
+  Tests the
+
+  end-to-end pipeline: URL validation rejection, successful readability path,
+  Puppeteer
+
+  fallback trigger (mocked), non-HTML content types (JSON/XML/text), binary
+  rejection,
+
+  timeout handling, error isolation (never throws), ScrapeResult field
+  correctness, and
+
+  stderr logging verification. Mocks all sub-components.
+requirements:
+  - US-SC-001
+  - US-SC-002
+  - US-SC-004
+  - US-SC-005
+  - US-SC-008
+  - US-SC-009
+  - US-SC-011
+  - US-SC-012
+  - US-SC-013
+  - BG-SC-001
+  - BG-SC-004
+  - NFR-SC-001
+  - NFR-SC-004
+  - NFR-SC-006
+acceptanceCriteria:
+  - "Tests that scrape() returns ScrapeResult with success: false for invalid
+    URLs (empty, malformed, non-http, SSRF)"
+  - "Tests successful readability path returns success: true with
+    extractionMethod 'readability' and non-empty textContent"
+  - Tests Puppeteer fallback is triggered when readability yields < 200 chars
+    and returns extractionMethod 'puppeteer' on success
+  - Tests JSON/XML/text content types return appropriate extractionMethod
+    without invoking Readability
+  - "Tests binary content returns success: false with 'Unsupported content type'
+    error"
+  - Tests timeout returns ScrapeResult with 'Fetch timed out' error (never
+    throws)
+  - Tests that scrape() never rejects for expected failures (error isolation)
+  - Tests success result has textContent non-null and contentLength > 0; failure
+    result has textContent null and contentLength 0
+  - Tests that all log output goes to process.stderr (stdout purity) by
+    capturing both streams
+  - Tests truncated flag is set correctly when content exceeds maxContentChars
+  - All sub-components (fetchUrl, renderPage, etc.) are mocked — no real network
+    or browser
+schemas:
+  - ScrapeResult
+files:
+  - tests/modules/scrape-extract/scraper.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC9
+  - SC10
+category: test
+implementationSteps:
+  - Set up test file with imports for scrape and ScrapeResult
+  - Mock all internal component modules (url-validator, http-fetcher,
+    encoding-detector, content-type-router, content-extractor,
+    puppeteer-renderer, truncator) using vi.mock or equivalent
+  - "Test case: invalid URL inputs -> verify each error message and ScrapeResult
+    shape"
+  - "Test case: mock fetchUrl returning HTML + routeContent returning html kind
+    + extractWithReadability returning >= 200 chars -> verify success result"
+  - "Test case: mock readability returning < 200 chars + renderPage returning
+    HTML + readability on rendered -> verify puppeteer method"
+  - "Test case: mock routeContent returning json/xml/text kind -> verify correct
+    extractionMethod"
+  - "Test case: mock routeContent returning binary kind -> verify error result"
+  - "Test case: mock fetchUrl returning timeout error -> verify error result, no
+    throw"
+  - Capture process.stderr.write and process.stdout.write spies to verify
+    logging goes to stderr only
+  - Assert ScrapeResult field correctness (elapsedMs >= 0, truncated boolean,
+    contentLength consistency)

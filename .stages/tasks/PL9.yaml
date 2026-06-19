@@ -1,0 +1,55 @@
+id: PL9
+title: Test web_search pipeline flow
+description: >
+  Create integration tests for the web_search pipeline flow using mocked SR, SC,
+  DD, SY module
+
+  functions. Verify full happy path, per-URL failure isolation,
+  all-scrape-failed error,
+
+  search-stage failure error, dedup-filters-all message, synthesis-failure
+  graceful degradation,
+
+  and correct data handoff between stages.
+requirements:
+  - US-PL-001
+  - US-PL-006
+  - US-PL-008
+  - US-PL-010
+  - US-PL-011
+  - US-PL-014
+  - BG-PL-001
+  - NFR-PL-004
+  - NFR-PL-008
+acceptanceCriteria:
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - All tests pass under the test runner
+schemas:
+  - PipelineError
+files:
+  - tests/modules/pipeline-orchestration/web-search-pipeline.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL4
+category: test
+implementationSteps:
+  - Set up mock functions for search, scrape, deduplicate, synthesize using
+    jest.fn() or equivalent
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"

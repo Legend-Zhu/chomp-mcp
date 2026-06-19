@@ -1,0 +1,43 @@
+id: SRS8
+title: Create search-retrieval module index with public API re-exports
+description: >
+  Create src/modules/search-retrieval/index.ts as the public entry point that
+  re-exports
+
+  the search function, SearchResult and SearchOptions types, and all seven error
+  classes.
+
+  Ensures consumers import from a single barrel module with full type safety and
+  ESM
+
+  export syntax.
+requirements:
+  - US-SR-012
+  - DC-SR-002
+  - DC-SR-003
+acceptanceCriteria:
+  - "[object Object]"
+  - Exports SearchResult interface type
+  - Exports SearchOptions interface type
+  - Exports SearchError, SearchTimeoutError, SearchParseError,
+    SearchFailedError, SearchUnavailableError, ConfigurationError,
+    ValidationError
+  - Uses ESM export syntax (no CommonJS module.exports)
+  - Module compiles under tsc --noEmit strict mode with zero errors
+schemas:
+  - SearchResult
+  - SearchOptions
+files:
+  - src/modules/search-retrieval/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+  - SRS7
+category: service
+implementationSteps:
+  - Re-export search from retry-failover.ts
+  - Re-export SearchResult and SearchOptions from shared/types/search.ts
+  - Re-export all error classes from errors.ts
+  - Add JSDoc module-level comment documenting the public API surface
+  - Verify all imports use ESM import/export syntax

@@ -1,0 +1,73 @@
+id: DD7
+title: Content merger — exact-URL, exact-content, and near-duplicate merging
+description: >
+  Implement `src/modules/deduplicate/content-merger.ts` with three functions:
+  `deduplicateByUrl`,
+
+  `deduplicateExactContent`, and `mergeNearDuplicates`. deduplicateByUrl groups
+  items by normalizedUrl
+
+  and retains the highest-scored (ties→earliest originalIndex).
+  deduplicateExactContent groups items
+
+  with identical fingerprint sets (compared via sorted-array join) and copies
+  discarded items' URLs into
+
+  the retained item's mergedSources. mergeNearDuplicates computes N*(N-1)/2
+  pairwise Jaccard similarities,
+
+  uses union-find (disjoint-set with path compression + union-by-rank) to form
+  transitive groups, retains
+
+  the best per group, and copies merged source URLs. Logs stderr counts for each
+  removal type.
+requirements:
+  - US-DD-003
+  - US-DD-007
+  - US-DD-008
+  - NFR-DD-002
+  - NFR-DD-003
+  - NFR-DD-004
+acceptanceCriteria:
+  - deduplicateByUrl groups items by identical normalizedUrl, retains highest
+    score (ties → earliest originalIndex), returns { retained, removed }
+  - deduplicateByUrl logs count of removed items to stderr
+  - deduplicateExactContent groups items with identical fingerprint sets via
+    sorted-array comparison, retains highest score
+  - deduplicateExactContent copies discarded items' source URLs into retained
+    items' mergedSources arrays
+  - deduplicateExactContent logs count removed to stderr
+  - mergeNearDuplicates computes all N*(N-1)/2 pairwise Jaccard similarities
+  - mergeNearDuplicates uses union-find with path compression and union-by-rank
+    for transitive grouping
+  - Items with similarity >= threshold are classified as near-duplicates and
+    merged into the same group
+  - mergeNearDuplicates retains highest-scored item per group (ties → earliest
+    originalIndex)
+  - mergeNearDuplicates copies discarded items' URLs into retained item's
+    mergedSources
+  - mergeNearDuplicates returns { retained, removed, groupsMerged } and logs
+    both counts to stderr
+  - A group's transitive members are correctly merged (A~B, B~C implies A,B,C in
+    same group)
+  - No valid-content item is discarded unless identified as a duplicate of a
+    retained item
+  - "[object Object]"
+schemas:
+  - FingerprintedItem
+files:
+  - src/modules/deduplicate/content-merger.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD2
+  - DD6
+category: service
+implementationSteps:
+  - Import jaccardSimilarity from similarity-computer.ts, FingerprintedItem from
+    types.ts, log from shared logger
+  - "[object Object]"
+  - "[object Object]"
+  - Implement a UnionFind class with find (path compression) and union
+    (union-by-rank) methods
+  - "[object Object]"

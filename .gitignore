@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+coverage/
+*.log
+_checkpoint.json
+_tasks.json
+.DS_Store
+.idea/
+.vscode/

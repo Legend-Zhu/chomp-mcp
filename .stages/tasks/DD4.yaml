@@ -1,0 +1,45 @@
+id: DD4
+title: Paragraph segmenter — text splitting into meaningful segments
+description: >
+  Implement `src/modules/deduplicate/paragraph-segmenter.ts` with the
+  `segmentParagraphs` function.
+
+  Splits text content at boundaries of 2+ consecutive newlines, <br>, <br/>, <br
+  />, </p>, and </div>
+
+  tags. Discards segments shorter than minChars. Returns trimmed,
+  internal-whitespace-collapsed paragraph
+
+  strings. Returns empty array for empty or whitespace-only text.
+requirements:
+  - US-DD-004
+  - NFR-DD-005
+acceptanceCriteria:
+  - segmentParagraphs splits at 2+ consecutive newlines (\n\n, \r\n\r\n, etc.)
+  - segmentParagraphs splits at <br>, <br/>, <br />, </p>, and </div> tags
+    (case-insensitive)
+  - Segments shorter than minChars are discarded
+  - Each returned segment is trimmed and has internal whitespace runs collapsed
+    to single spaces
+  - Returns empty array when text is empty, null, or whitespace-only
+  - Returns empty array when all segments are below minChars threshold
+  - Function is a pure function with no side effects
+schemas: []
+files:
+  - src/modules/deduplicate/paragraph-segmenter.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD2
+category: service
+implementationSteps:
+  - Implement segmentParagraphs(text, minChars) with explicit type annotations
+  - If text is falsy or whitespace-only, return []
+  - Replace HTML break/paragraph/div tags with newlines using regex
+    (case-insensitive matching)
+  - Split on 2+ consecutive newlines using regex /\n{2,}/ after normalizing \r\n
+    to \n
+  - For each raw segment, trim and collapse internal whitespace with /\s+/g
+    replacement to single space
+  - Filter segments where trimmed length >= minChars
+  - Return the filtered array

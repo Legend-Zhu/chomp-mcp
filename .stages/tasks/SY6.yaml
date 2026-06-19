@@ -1,0 +1,89 @@
+id: SY6
+title: LLM client — init, health check, and retry-wrapped chat completion
+description: >
+  Implement createLLMClient, verifyLLMConnectivity, and callLLMWithRetry. The
+  client uses an
+
+  OpenAI-compatible HTTP client with custom baseURL. callLLMWithRetry implements
+  exponential backoff
+
+  for 429/5xx/network errors (3 retries), timeout retries (2), immediate
+  degradation for 401/403,
+
+  and AbortController-based timeout enforcement.
+requirements:
+  - US-SY-001
+  - US-SY-006
+  - NFR-SY-001
+  - NFR-SY-002
+  - NFR-SY-003
+  - NFR-SY-006
+  - DC-SY-001
+  - DC-SY-002
+acceptanceCriteria:
+  - createLLMClient(config) throws LLMConfigError with message containing
+    'LLM_API_KEY is required' when config.apiKey is empty or missing
+  - createLLMClient(config) instantiates an OpenAI-compatible client with
+    baseURL and configurable timeout
+  - verifyLLMConnectivity(client) sends a minimal test prompt and returns
+    boolean (true if reachable, false on any error)
+  - callLLMWithRetry retries on 429 (LLMRateLimitError) and 5xx (LLMServerError)
+    up to maxRetries=3 with exponential backoff
+  - callLLMWithRetry retries on timeout (LLMTimeoutError) up to timeoutRetries=2
+  - callLLMWithRetry does NOT retry on 401/403 (LLMAuthError) — immediately
+    throws with log '[SY] LLM auth failed — check LLM_API_KEY'
+  - "callLLMWithRetry logs '[SY] retry {attempt}/{max}: {reason}' on each retry
+    attempt"
+  - callLLMWithRetry enforces HTTP timeout via AbortController with
+    config.timeoutMs
+  - Backoff uses initialDelayMs=1000, multiplier=2, maxDelayMs=10000 with ±20%
+    jitter
+  - LLM_API_KEY never appears in any log output (NFR-SY-003)
+  - All logging goes to stderr only
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - LLMCallOptions
+  - RetryConfig
+files:
+  - src/modules/synthesize/llm-client.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY1
+category: service
+implementationSteps:
+  - Import OpenAI SDK (openai npm package) or use native fetch with
+    OpenAI-compatible endpoint — prefer the openai package for client
+    construction
+  - Import SynthesizeConfig, LLMResponse, LLMCallOptions, and all error classes
+    from types.ts
+  - Import the shared logger from ../../shared/utils/logger.ts
+  - "Implement createLLMClient(config): if config.apiKey is empty/whitespace,
+    throw new LLMConfigError('LLM_API_KEY is required'); else return new
+    OpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl, timeout:
+    config.timeoutMs })"
+  - "Implement verifyLLMConnectivity(client): wrap a minimal
+    chat.completions.create call in try/catch, return true on success, false on
+    any error"
+  - "Implement callLLMWithRetry(client, systemPrompt, userPrompt, options?):
+    create default RetryConfig with values from design doc (maxRetries=3,
+    initialDelayMs=1000, maxDelayMs=10000, multiplier=2, timeoutRetries=2)"
+  - "In the retry loop: use AbortController with setTimeout(timeoutMs) to
+    enforce timeout, call client.chat.completions.create with messages
+    [{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],
+    temperature from options (default 0.3), max_tokens from options"
+  - "On response: extract content from choices[0].message.content, promptTokens
+    from usage.prompt_tokens, completionTokens from usage.completion_tokens; if
+    content is empty/whitespace throw LLMResponseError"
+  - "On error: classify HTTP status — 401/403 → LLMAuthError (log auth warning,
+    throw immediately), 429 → LLMRateLimitError, 5xx → LLMServerError,
+    AbortError/timeout → LLMTimeoutError, network errors → LLMNetworkError"
+  - "For retryable errors (rate limit, server, network): if attempt >=
+    maxRetries throw; else compute delay = min(initialDelayMs *
+    multiplier^attempt, maxDelayMs), add ±20% jitter, log retry, sleep,
+    increment attempt"
+  - "For timeout errors: use timeoutRetries as max instead of maxRetries"
+  - Ensure LLM_API_KEY value is never logged — only reference 'LLM_API_KEY' as a
+    variable name in log messages
+  - Export createLLMClient, verifyLLMConnectivity, callLLMWithRetry

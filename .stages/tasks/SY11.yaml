@@ -1,0 +1,79 @@
+id: SY11
+title: Unit tests for degradation-handler and llm-client
+description: >
+  Write unit tests for degradation-handler (fallback DigestResult construction,
+  truncation, first-sentence
+
+  extraction) and llm-client (config validation, health check, retry logic with
+  mocked LLM responses
+
+  for various HTTP status codes).
+requirements:
+  - US-SY-001
+  - US-SY-006
+  - US-SY-007
+  - BG-SY-003
+  - NFR-SY-002
+  - NFR-SY-003
+  - NFR-SY-006
+acceptanceCriteria:
+  - degradation-handler.test.ts verifies answer is prefixed with the degradation
+    note and truncated to max 2000 chars
+  - degradation-handler.test.ts verifies keyPoints contains first sentences of
+    each content item (max 10)
+  - degradation-handler.test.ts verifies sources includes all input URLs and
+    titles
+  - degradation-handler.test.ts verifies empty contents returns a minimal valid
+    DigestResult
+  - "degradation-handler.test.ts verifies stderr log contains '[SY] degradation
+    activated: {reason}'"
+  - llm-client.test.ts verifies createLLMClient throws LLMConfigError with
+    'LLM_API_KEY is required' when apiKey is empty
+  - llm-client.test.ts verifies callLLMWithRetry retries 429 errors up to 3
+    times with exponential backoff (mock timers)
+  - llm-client.test.ts verifies callLLMWithRetry does NOT retry 401/403 errors
+  - llm-client.test.ts verifies callLLMWithRetry retries timeout errors up to 2
+    times
+  - "llm-client.test.ts verifies retry log format '[SY] retry {attempt}/{max}:
+    {reason}'"
+  - llm-client.test.ts verifies LLM_API_KEY value never appears in any captured
+    log output
+  - All tests pass with mocked OpenAI client
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - DigestResult
+  - RetryConfig
+files:
+  - tests/modules/synthesize/degradation-handler.test.ts
+  - tests/modules/synthesize/llm-client.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY5
+  - SY6
+category: test
+implementationSteps:
+  - "Write degradation-handler.test.ts: create sample ContentItems with varying
+    scores, verify answer prefix and 2000-char truncation"
+  - "Test keyPoints extraction: verify first sentence detection by '.', verify
+    max 10 items"
+  - Test sources array completeness — all input URLs present
+  - Test empty contents edge case
+  - Mock process.stderr.write to verify degradation log format
+  - "Write llm-client.test.ts: mock the OpenAI client or use a mock fetch —
+    create a mock client with configurable responses"
+  - Test createLLMClient with empty/undefined apiKey → assert throws
+    LLMConfigError with correct message
+  - Test createLLMClient with valid config → assert returns client instance
+  - Test callLLMWithRetry with mocked 429 response → verify 3 retry attempts,
+    verify backoff delays (mock timers)
+  - Test callLLMWithRetry with mocked 401 response → verify no retry, verify
+    error thrown immediately, verify auth warning logged
+  - Test callLLMWithRetry with mocked timeout → verify 2 retry attempts
+  - Test callLLMWithRetry with mocked 200 success → verify LLMResponse returned
+    with correct content/tokens
+  - Test callLLMWithRetry with mocked 500 response → verify retry then throw
+    after maxRetries
+  - Capture all stderr writes and assert LLM_API_KEY value (e.g., 'sk-test-key')
+    never appears in any log string

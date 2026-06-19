@@ -1,0 +1,50 @@
+id: DD5
+title: Fingerprinter — FNV-1a 32-bit hashing and fingerprint set computation
+description: >
+  Implement `src/modules/deduplicate/fingerprinter.ts` with `fnv1a32`,
+  `computeFingerprintSet`, and
+
+  the FNV constants (FNV_OFFSET_32, FNV_PRIME_32). The `fnv1a32` function
+  computes a non-cryptographic
+
+  32-bit hash using Math.imul for correct multiplication and >>> 0 for unsigned
+  conversion. The
+
+  `computeFingerprintSet` function segments content into paragraphs (via
+  segmentParagraphs), normalizes
+
+  each paragraph (trim, collapse whitespace, lowercase), hashes each, and
+  collects unique hashes into a
+
+  Set<number>.
+requirements:
+  - US-DD-005
+  - DC-DD-002
+  - NFR-DD-005
+acceptanceCriteria:
+  - FNV_OFFSET_32 equals 2166136261 and FNV_PRIME_32 equals 16777619
+  - fnv1a32 computes a deterministic unsigned 32-bit integer for any input string
+  - fnv1a32 uses Math.imul for multiplication and >>> 0 for unsigned conversion
+  - Identical input strings produce identical fingerprint values
+  - computeFingerprintSet segments text via segmentParagraphs, normalizes each
+    paragraph, and hashes
+  - computeFingerprintSet returns a Set<number> with unique fingerprint values
+    (no duplicates)
+  - Normalization before hashing includes trim, collapse internal whitespace to
+    single space, and lowercase
+  - No LLM, embedding, or external API calls (pure deterministic hashing only)
+schemas: []
+files:
+  - src/modules/deduplicate/fingerprinter.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD4
+category: service
+implementationSteps:
+  - Define FNV_OFFSET_32 = 2166136261 and FNV_PRIME_32 = 16777619 as numeric
+    constants
+  - "[object Object]"
+  - Import segmentParagraphs from paragraph-segmenter.ts
+  - "[object Object]"
+  - Return the Set<number>

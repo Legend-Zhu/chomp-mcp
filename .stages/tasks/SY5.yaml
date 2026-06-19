@@ -1,0 +1,67 @@
+id: SY5
+title: Degradation handler — structured fallback from raw content
+description: >
+  Implement degradationFallback(query, contents, reason) that constructs a
+  structurally valid DigestResult
+
+  WITHOUT calling the LLM. Answer is truncated concatenation of top-ranked
+  content (max 2000 chars),
+
+  prefixed with the availability note. KeyPoints are first sentences of each
+  item (max 10).
+
+  Sources include all input URLs and titles. Logs degradation activation to
+  stderr.
+requirements:
+  - US-SY-007
+  - BG-SY-003
+  - NFR-SY-002
+  - NFR-SY-004
+  - DC-SY-003
+acceptanceCriteria:
+  - degradationFallback(query, contents, reason) returns a DigestResult without
+    any LLM call
+  - "answer field is prefixed with '[Note: LLM synthesis unavailable; showing
+    truncated raw content.]'"
+  - answer field is truncated to max 2000 characters total (including the prefix)
+  - answer concatenates top-ranked content snippets sorted by descending score
+  - keyPoints contains first sentence of each content item (max 10 items); first
+    sentence detected by first '.' followed by whitespace or end-of-string
+  - sources array includes all input content URLs and titles as SourceRef[]
+  - "Returned DigestResult is structurally valid: non-empty answer, at least one
+    source (if contents non-empty)"
+  - "Logs to stderr: '[SY] degradation activated: {reason}'"
+  - If contents is empty, returns a minimal valid DigestResult with a
+    placeholder answer and empty sources
+  - No stdout output
+schemas:
+  - DigestResult
+  - SourceRef
+  - ContentItem
+files:
+  - src/modules/synthesize/degradation-handler.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY1
+category: data
+implementationSteps:
+  - Import DigestResult, SourceRef from shared types and ContentItem from shared
+    types
+  - Import the shared logger from ../../shared/utils/logger.ts
+  - "Define DEGRADATION_PREFIX constant: '[Note: LLM synthesis unavailable;
+    showing truncated raw content.]'"
+  - "Define MAX_DEGRADATION_ANSWER constant: 2000"
+  - "Implement firstSentence(text): match text up to first '.' followed by
+    whitespace or end-of-string, return trimmed sentence (or full text if no
+    period)"
+  - "Implement degradationFallback(query, contents, reason): log '[SY]
+    degradation activated: {reason}' to stderr"
+  - Sort contents by descending score, concatenate content snippets until total
+    length reaches 2000 chars (including prefix)
+  - "Build keyPoints: map first 10 content items to firstSentence(item.content)"
+  - "Build sources: map all content items to { url: item.url, title: item.title
+    }"
+  - "Handle empty contents: return { answer: DEGRADATION_PREFIX + ' No content
+    available.', keyPoints: [], sources: [] }"
+  - Return the DigestResult object

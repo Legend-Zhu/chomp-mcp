@@ -1,0 +1,49 @@
+id: DD1
+title: Shared types — DeduplicatedItem and DDConfig interfaces
+description: >
+  Define the exported type interfaces for the deduplicate module in the shared
+  types layer.
+
+  `src/shared/types/deduplicate.ts` contains the `DeduplicatedItem` output
+  interface (extending
+
+  ContentItem with normalizedUrl, mergedSources, fingerprintCount) and the
+  `DDConfig` configuration
+
+  interface (similarityThreshold, minParagraphChars, extraTrackingParams). Also
+  re-export from
+
+  `src/shared/types/index.ts` so other modules can import. This file is the
+  contract surface that PL
+
+  and SY modules consume.
+requirements:
+  - US-DD-010
+  - US-DD-011
+acceptanceCriteria:
+  - DeduplicatedItem interface extends ContentItem with normalizedUrl (string),
+    mergedSources (string[]), fingerprintCount (number)
+  - DDConfig interface has similarityThreshold (number), minParagraphChars
+    (number), extraTrackingParams (string[])
+  - Both interfaces have JSDoc comments matching the data-model descriptions
+  - File compiles under TypeScript strict mode with zero errors
+  - Types are re-exported from src/shared/types/index.ts
+schemas:
+  - DeduplicatedItem
+  - DDConfig
+files:
+  - src/shared/types/deduplicate.ts
+  - src/shared/types/index.ts
+mode: extend
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - Import ContentItem from './content.ts'
+  - Define DeduplicatedItem interface extending ContentItem with normalizedUrl,
+    mergedSources, fingerprintCount
+  - Define DDConfig interface with similarityThreshold, minParagraphChars,
+    extraTrackingParams fields
+  - Add JSDoc comments for each field matching the contract data-model
+    descriptions
+  - Add export statement for both interfaces from src/shared/types/index.ts

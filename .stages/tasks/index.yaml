@@ -1,0 +1,2038 @@
+- id: BOOTSTRAP
+  title: Project Bootstrap — TypeScript MCP Server Skeleton
+  description: >-
+    (1) SCAFFOLD TOOL / COMMAND:
+
+    This project is a TypeScript MCP (Model Context Protocol) server built on
+
+    @modelcontextprotocol/sdk with stdio transport, strict-mode ESM, and
+    Zod-based
+
+    parameter validati
+  requirements: []
+  files:
+    - package.json
+    - tsconfig.json
+    - .gitignore
+    - src/index.ts
+  schemas: []
+  dependsOn: []
+  category: config
+  mode: create
+- id: SC1
+  title: Shared and internal type definitions
+  description: >-
+    Define the ScrapeResult, ExtractionMethod public type contract in
+    src/shared/types/scrape.ts
+
+    (consumed by downstream modules DD, SY, PL) and all internal SC module types
+    in
+
+    src/modules/scrape-extract/
+  requirements:
+    - US-SC-012
+    - DC-SC-001
+    - DC-SC-002
+    - DC-SC-005
+    - DC-SC-006
+    - NFR-SC-005
+  files:
+    - src/shared/types/scrape.ts
+    - src/modules/scrape-extract/types.ts
+  schemas:
+    - ScrapeResult
+    - ScrapeOptions
+    - ScrapeConfig
+    - FetchResult
+    - ExtractionOutput
+    - RenderResult
+    - ContentTypeResult
+    - ValidationResult
+    - TruncationResult
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: SC2
+  title: URL validator with SSRF protection
+  description: >-
+    Implement url-validator.ts which validates the input URL before any network
+    operation.
+
+    Checks that the URL is a non-empty string, parses via the URL constructor,
+    requires
+
+    http/https scheme, and blocks
+  requirements:
+    - US-SC-013
+    - NFR-SC-003
+  files:
+    - src/modules/scrape-extract/url-validator.ts
+  schemas:
+    - ValidationResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC3
+  title: Content truncator at word boundary
+  description: >-
+    Implement truncator.ts that truncates extracted text at the nearest word
+    boundary at or
+
+    before MAX_CONTENT_CHARS and appends the marker '…[truncated]'. When
+    maxChars is 0 or
+
+    negative, truncation is di
+  requirements:
+    - US-SC-008
+  files:
+    - src/modules/scrape-extract/truncator.ts
+  schemas:
+    - TruncationResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC4
+  title: Encoding detector with charset conversion
+  description: >-
+    Implement encoding-detector.ts that detects the character encoding from the
+    Content-Type
+
+    header, falls back to HTML meta tag inspection, and defaults to UTF-8. Uses
+    iconv-lite
+
+    to decode non-UTF-8 byte
+  requirements:
+    - US-SC-007
+    - US-SC-011
+    - NFR-SC-007
+  files:
+    - src/modules/scrape-extract/encoding-detector.ts
+  schemas:
+    - ExtractionOutput
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC5
+  title: Content-type router for HTML/JSON/XML/text/binary
+  description: >-
+    Implement content-type-router.ts that dispatches based on the Content-Type
+    header (or
+
+    byte-sniffing when the header is missing) to determine the content category:
+    HTML, JSON,
+
+    XML, plain text, or binar
+  requirements:
+    - US-SC-009
+  files:
+    - src/modules/scrape-extract/content-type-router.ts
+  schemas:
+    - ContentTypeResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC6
+  title: Content extractor via jsdom and Mozilla Readability
+  description: >-
+    Implement content-extractor.ts that parses HTML using jsdom to create a DOM,
+    then applies
+
+    Mozilla Readability to extract the page title and clean text content.
+    Returns
+
+    extractionMethod 'readability' i
+  requirements:
+    - US-SC-002
+    - BG-SC-001
+    - BG-SC-002
+  files:
+    - src/modules/scrape-extract/content-extractor.ts
+  schemas:
+    - ExtractionOutput
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC7
+  title: HTTP fetcher with redirects, retries, and error handling
+  description: >-
+    Implement http-fetcher.ts using Node.js native fetch. Handles HTTP redirect
+    following
+
+    (max 5 hops), transient error retries with exponential backoff (1s, 3s),
+    HTTP 429
+
+    Retry-After handling, HTTP 4xx/5
+  requirements:
+    - US-SC-001
+    - US-SC-003
+    - US-SC-005
+    - US-SC-006
+    - US-SC-010
+    - DC-SC-003
+  files:
+    - src/modules/scrape-extract/http-fetcher.ts
+  schemas:
+    - FetchResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC8
+  title: Puppeteer headless browser fallback renderer
+  description: >-
+    Implement puppeteer-renderer.ts as the fallback path for JavaScript-rendered
+    SPA pages.
+
+    Dynamically imports puppeteer (await import('puppeteer')), launches a
+    headless browser
+
+    with --no-sandbox --disab
+  requirements:
+    - US-SC-004
+    - US-SC-011
+    - NFR-SC-002
+    - NFR-SC-006
+    - DC-SC-004
+    - BG-SC-003
+  files:
+    - src/modules/scrape-extract/puppeteer-renderer.ts
+  schemas:
+    - RenderResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+  category: service
+  mode: create
+- id: SC9
+  title: Main scrape orchestrator with full pipeline
+  description: >-
+    Implement scraper.ts — the main scrape() orchestrator that ties together URL
+    validation,
+
+    HTTP fetching, encoding detection, content-type routing, Readability
+    extraction, Puppeteer
+
+    fallback, and trunca
+  requirements:
+    - US-SC-001
+    - US-SC-002
+    - US-SC-004
+    - US-SC-005
+    - US-SC-006
+    - US-SC-009
+    - US-SC-011
+    - US-SC-012
+    - BG-SC-001
+    - BG-SC-002
+    - BG-SC-004
+    - NFR-SC-001
+    - NFR-SC-004
+    - NFR-SC-005
+    - NFR-SC-006
+  files:
+    - src/modules/scrape-extract/scraper.ts
+  schemas:
+    - ScrapeResult
+    - ScrapeConfig
+  dependsOn:
+    - BOOTSTRAP
+    - SC2
+    - SC3
+    - SC4
+    - SC5
+    - SC6
+    - SC7
+    - SC8
+  category: service
+  mode: create
+- id: SC10
+  title: Module public API index exports
+  description: >-
+    Create index.ts as the module's public API surface. Exports the scrape()
+    function and
+
+    re-exports ScrapeResult, ExtractionMethod, ScrapeOptions types from shared
+    types for
+
+    downstream consumers. This fi
+  requirements:
+    - DC-SC-006
+  files:
+    - src/modules/scrape-extract/index.ts
+  schemas:
+    - ScrapeResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC9
+  category: entry
+  mode: create
+- id: SC11
+  title: Unit tests for URL validator, truncator, encoding detector, and
+    content-type router
+  description: >-
+    Write unit test files for the four pure-logic leaf components:
+    url-validator.test.ts
+
+    (SSRF checks, scheme validation, malformed URL handling), truncator.test.ts
+    (word-boundary
+
+    truncation, disabled mod
+  requirements:
+    - US-SC-007
+    - US-SC-008
+    - US-SC-009
+    - US-SC-013
+    - NFR-SC-003
+  files:
+    - tests/modules/scrape-extract/url-validator.test.ts
+    - tests/modules/scrape-extract/truncator.test.ts
+    - tests/modules/scrape-extract/encoding-detector.test.ts
+    - tests/modules/scrape-extract/content-type-router.test.ts
+  schemas:
+    - ValidationResult
+    - TruncationResult
+    - ContentTypeResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC2
+    - SC3
+    - SC4
+    - SC5
+  category: test
+  mode: create
+- id: SC12
+  title: Unit tests for content extractor and HTTP fetcher
+  description: >-
+    Write unit test files for content-extractor.test.ts (jsdom + Readability
+    extraction with
+
+    various HTML fixtures, threshold checking, error handling) and
+    http-fetcher.test.ts
+
+    (redirect following, retry 
+  requirements:
+    - US-SC-001
+    - US-SC-002
+    - US-SC-003
+    - US-SC-005
+    - US-SC-006
+    - US-SC-010
+  files:
+    - tests/modules/scrape-extract/content-extractor.test.ts
+    - tests/modules/scrape-extract/http-fetcher.test.ts
+  schemas:
+    - ExtractionOutput
+    - FetchResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC6
+    - SC7
+  category: test
+  mode: create
+- id: SC13
+  title: Integration tests for the scrape orchestrator
+  description: >-
+    Write scraper.test.ts as the integration test for the full scrape() flow.
+    Tests the
+
+    end-to-end pipeline: URL validation rejection, successful readability path,
+    Puppeteer
+
+    fallback trigger (mocked), non
+  requirements:
+    - US-SC-001
+    - US-SC-002
+    - US-SC-004
+    - US-SC-005
+    - US-SC-008
+    - US-SC-009
+    - US-SC-011
+    - US-SC-012
+    - US-SC-013
+    - BG-SC-001
+    - BG-SC-004
+    - NFR-SC-001
+    - NFR-SC-004
+    - NFR-SC-006
+  files:
+    - tests/modules/scrape-extract/scraper.test.ts
+  schemas:
+    - ScrapeResult
+  dependsOn:
+    - BOOTSTRAP
+    - SC9
+    - SC10
+  category: test
+  mode: create
+- id: DD1
+  title: Shared types — DeduplicatedItem and DDConfig interfaces
+  description: >-
+    Define the exported type interfaces for the deduplicate module in the shared
+    types layer.
+
+    `src/shared/types/deduplicate.ts` contains the `DeduplicatedItem` output
+    interface (extending
+
+    ContentItem with
+  requirements:
+    - US-DD-010
+    - US-DD-011
+  files:
+    - src/shared/types/deduplicate.ts
+    - src/shared/types/index.ts
+  schemas:
+    - DeduplicatedItem
+    - DDConfig
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: extend
+- id: DD2
+  title: Module types, constants, and environment-based config loader
+  description: >-
+    Define module-internal types and constants in
+    `src/modules/deduplicate/types.ts`. This includes
+
+    the DedupStats accumulator interface, the FingerprintedItem working
+    structure (Set<number>
+
+    fingerprints)
+  requirements:
+    - US-DD-006
+    - US-DD-010
+    - DC-DD-005
+    - NFR-DD-003
+  files:
+    - src/modules/deduplicate/types.ts
+  schemas:
+    - DedupStats
+    - FingerprintedItem
+    - DDConfig
+  dependsOn:
+    - BOOTSTRAP
+    - DD1
+  category: model
+  mode: create
+- id: DD3
+  title: URL normalizer — tracking-param stripping and canonical URL form
+  description: >-
+    Implement `src/modules/deduplicate/url-normalizer.ts` with the
+    `normalizeUrl` function and
+
+    `TRACKING_PARAM_BLOCKLIST` constant. Uses the WHATWG URL constructor for
+    safe parsing (NFR-DD-006).
+
+    Normaliza
+  requirements:
+    - US-DD-001
+    - US-DD-002
+    - DC-DD-006
+    - NFR-DD-006
+  files:
+    - src/modules/deduplicate/url-normalizer.ts
+  schemas:
+    - DDConfig
+  dependsOn:
+    - BOOTSTRAP
+    - DD2
+  category: service
+  mode: create
+- id: DD4
+  title: Paragraph segmenter — text splitting into meaningful segments
+  description: >-
+    Implement `src/modules/deduplicate/paragraph-segmenter.ts` with the
+    `segmentParagraphs` function.
+
+    Splits text content at boundaries of 2+ consecutive newlines, <br>, <br/>,
+    <br />, </p>, and </div>
+
+    ta
+  requirements:
+    - US-DD-004
+    - NFR-DD-005
+  files:
+    - src/modules/deduplicate/paragraph-segmenter.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD2
+  category: service
+  mode: create
+- id: DD5
+  title: Fingerprinter — FNV-1a 32-bit hashing and fingerprint set computation
+  description: >-
+    Implement `src/modules/deduplicate/fingerprinter.ts` with `fnv1a32`,
+    `computeFingerprintSet`, and
+
+    the FNV constants (FNV_OFFSET_32, FNV_PRIME_32). The `fnv1a32` function
+    computes a non-cryptographic
+
+    3
+  requirements:
+    - US-DD-005
+    - DC-DD-002
+    - NFR-DD-005
+  files:
+    - src/modules/deduplicate/fingerprinter.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD4
+  category: service
+  mode: create
+- id: DD6
+  title: Similarity computer — Jaccard coefficient on fingerprint sets
+  description: >-
+    Implement `src/modules/deduplicate/similarity-computer.ts` with the
+    `jaccardSimilarity` function.
+
+    Computes |A ∩ B| / |A ∪ B| by iterating over the smaller set for
+    intersection counting (O(min(|A|, |B|
+  requirements:
+    - US-DD-006
+    - NFR-DD-002
+  files:
+    - src/modules/deduplicate/similarity-computer.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD2
+  category: service
+  mode: create
+- id: DD7
+  title: Content merger — exact-URL, exact-content, and near-duplicate merging
+  description: >-
+    Implement `src/modules/deduplicate/content-merger.ts` with three functions:
+    `deduplicateByUrl`,
+
+    `deduplicateExactContent`, and `mergeNearDuplicates`. deduplicateByUrl
+    groups items by normalizedUrl
+
+    and
+  requirements:
+    - US-DD-003
+    - US-DD-007
+    - US-DD-008
+    - NFR-DD-002
+    - NFR-DD-003
+    - NFR-DD-004
+  files:
+    - src/modules/deduplicate/content-merger.ts
+  schemas:
+    - FingerprintedItem
+  dependsOn:
+    - BOOTSTRAP
+    - DD2
+    - DD6
+  category: service
+  mode: create
+- id: DD8
+  title: Stats accumulator — DedupStats creation and stderr summary logging
+  description: >
+    Implement `src/modules/deduplicate/stats.ts` with `createDedupStats` and
+    `logStats`. createDedupStats
+
+    returns a fresh DedupStats object with all fields zeroed. logStats emits a
+    structured single-line
+  requirements:
+    - US-DD-009
+    - NFR-DD-003
+  files:
+    - src/modules/deduplicate/stats.ts
+  schemas:
+    - DedupStats
+  dependsOn:
+    - BOOTSTRAP
+    - DD2
+  category: service
+  mode: create
+- id: DD9
+  title: Deduplicator orchestrator — full pipeline entry function
+  description: >-
+    Implement `src/modules/deduplicate/deduplicator.ts` with the main
+    `deduplicate` function. Orchestrates
+
+    the full pipeline: (1) filter empty-content items with warning logging, (2)
+    URL normalize each it
+  requirements:
+    - US-DD-003
+    - US-DD-008
+    - US-DD-009
+    - US-DD-010
+    - US-DD-011
+    - BG-DD-001
+    - BG-DD-002
+    - NFR-DD-001
+    - NFR-DD-003
+    - NFR-DD-004
+    - NFR-DD-005
+    - NFR-DD-007
+    - DC-DD-001
+    - DC-DD-003
+    - DC-DD-004
+  files:
+    - src/modules/deduplicate/deduplicator.ts
+  schemas:
+    - DeduplicatedItem
+    - DDConfig
+    - FingerprintedItem
+    - DedupStats
+  dependsOn:
+    - BOOTSTRAP
+    - DD1
+    - DD2
+    - DD3
+    - DD5
+    - DD7
+    - DD8
+  category: service
+  mode: create
+- id: DD10
+  title: Module index — public API exports
+  description: >-
+    Implement `src/modules/deduplicate/index.ts` as the public API barrel file.
+    Exports the `deduplicate`
+
+    function as the primary entry point, plus the `DeduplicatedItem` and
+    `DDConfig` types from shared 
+  requirements:
+    - US-DD-011
+    - DC-DD-003
+  files:
+    - src/modules/deduplicate/index.ts
+  schemas:
+    - DeduplicatedItem
+    - DDConfig
+  dependsOn:
+    - BOOTSTRAP
+    - DD1
+    - DD9
+  category: entry
+  mode: create
+- id: DD11
+  title: Tests — URL normalizer
+  description: >-
+    Implement `tests/modules/deduplicate/url-normalizer.test.ts` covering all
+    URL normalization
+
+    requirements: tracking-param removal, scheme conversion, hostname
+    lowercasing, fragment removal,
+
+    default por
+  requirements:
+    - US-DD-001
+    - US-DD-002
+    - DC-DD-006
+    - NFR-DD-006
+  files:
+    - tests/modules/deduplicate/url-normalizer.test.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD3
+  category: test
+  mode: create
+- id: DD12
+  title: Tests — paragraph segmenter
+  description: >
+    Implement `tests/modules/deduplicate/paragraph-segmenter.test.ts` covering
+    paragraph splitting at
+
+    newline and HTML-tag boundaries, minChars filtering, and empty/whitespace
+    input handling.
+  requirements:
+    - US-DD-004
+  files:
+    - tests/modules/deduplicate/paragraph-segmenter.test.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD4
+  category: test
+  mode: create
+- id: DD13
+  title: Tests — fingerprinter
+  description: >
+    Implement `tests/modules/deduplicate/fingerprinter.test.ts` covering FNV-1a
+    hash determinism,
+
+    identical-input consistency, fingerprint set deduplication, and known hash
+    values.
+  requirements:
+    - US-DD-005
+    - DC-DD-002
+    - NFR-DD-005
+  files:
+    - tests/modules/deduplicate/fingerprinter.test.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD5
+  category: test
+  mode: create
+- id: DD14
+  title: Tests — similarity computer
+  description: >-
+    Implement `tests/modules/deduplicate/similarity-computer.test.ts` covering
+    Jaccard coefficient edge
+
+    cases: identical sets, disjoint sets, empty sets, partial overlap, and the
+    O(min) efficiency propert
+  requirements:
+    - US-DD-006
+    - NFR-DD-002
+  files:
+    - tests/modules/deduplicate/similarity-computer.test.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - DD6
+  category: test
+  mode: create
+- id: DD15
+  title: Tests — content merger
+  description: >-
+    Implement `tests/modules/deduplicate/content-merger.test.ts` covering
+    deduplicateByUrl,
+
+    deduplicateExactContent, and mergeNearDuplicates including transitive
+    grouping via union-find,
+
+    score-based tie-b
+  requirements:
+    - US-DD-003
+    - US-DD-007
+    - US-DD-008
+    - NFR-DD-003
+    - NFR-DD-004
+  files:
+    - tests/modules/deduplicate/content-merger.test.ts
+  schemas:
+    - FingerprintedItem
+  dependsOn:
+    - BOOTSTRAP
+    - DD7
+  category: test
+  mode: create
+- id: DD16
+  title: Tests — deduplicator end-to-end pipeline
+  description: >
+    Implement `tests/modules/deduplicate/deduplicator.test.ts` covering the full
+    `deduplicate` pipeline:
+
+    empty input, single item, multi-item with duplicates at each level (URL,
+    exact-content, near-dup),
+  requirements:
+    - US-DD-009
+    - US-DD-010
+    - US-DD-011
+    - BG-DD-001
+    - BG-DD-002
+    - BG-DD-003
+    - NFR-DD-001
+    - NFR-DD-003
+    - NFR-DD-004
+    - NFR-DD-007
+    - DC-DD-001
+    - DC-DD-003
+  files:
+    - tests/modules/deduplicate/deduplicator.test.ts
+  schemas:
+    - DeduplicatedItem
+    - DDConfig
+    - DedupStats
+  dependsOn:
+    - BOOTSTRAP
+    - DD9
+    - DD10
+  category: test
+  mode: create
+- id: SY1
+  title: Synthesize types, config, and error classes
+  description: >-
+    Define all internal TypeScript interfaces, configuration types, and error
+    classes for the synthesize module.
+
+    This file is the foundational type layer that every other synthesize source
+    file depends on
+  requirements:
+    - US-SY-001
+    - DC-SY-004
+    - NFR-SY-002
+    - NFR-SY-003
+  files:
+    - src/modules/synthesize/types.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - LLMCallOptions
+    - RetryConfig
+  dependsOn:
+    - BOOTSTRAP
+  category: config
+  mode: create
+- id: SY2
+  title: Token estimator with EN/CJK heuristic
+  description: >-
+    Implement the heuristic token estimation function that detects CJK content
+    and applies different
+
+    character-to-token ratios (1 token per 4 chars for English, 1 token per 1.5
+    chars for CJK).
+
+    This pure f
+  requirements:
+    - US-SY-009
+    - NFR-SY-005
+  files:
+    - src/modules/synthesize/token-estimator.ts
+  schemas:
+    - LLMCallOptions
+  dependsOn:
+    - BOOTSTRAP
+    - SY1
+  category: model
+  mode: create
+- id: SY3
+  title: Prompt builder for system, user, single-source, and merge prompts
+  description: >-
+    Implement all prompt construction functions: buildSystemPrompt,
+    buildUserPrompt, buildSingleSourcePrompt,
+
+    and buildMergePrompt. These are pure functions that assemble well-structured
+    prompts for the L
+  requirements:
+    - US-SY-002
+    - US-SY-004
+  files:
+    - src/modules/synthesize/prompt-builder.ts
+  schemas:
+    - ContentItem
+    - DigestResult
+  dependsOn:
+    - BOOTSTRAP
+    - SY1
+  category: data
+  mode: create
+- id: SY4
+  title: Multi-strategy response parser and source reconciler
+  description: >-
+    Implement parseDigestResponse and reconcileSources. parseDigestResponse uses
+    a multi-strategy approach:
+
+    first attempts markdown header parsing (## Answer, ## Key Points, ##
+    Sources), falls back to heu
+  requirements:
+    - US-SY-008
+    - US-SY-003
+    - NFR-SY-004
+  files:
+    - src/modules/synthesize/response-parser.ts
+  schemas:
+    - DigestResult
+    - SourceRef
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY1
+  category: data
+  mode: create
+- id: SY5
+  title: Degradation handler — structured fallback from raw content
+  description: >-
+    Implement degradationFallback(query, contents, reason) that constructs a
+    structurally valid DigestResult
+
+    WITHOUT calling the LLM. Answer is truncated concatenation of top-ranked
+    content (max 2000 char
+  requirements:
+    - US-SY-007
+    - BG-SY-003
+    - NFR-SY-002
+    - NFR-SY-004
+    - DC-SY-003
+  files:
+    - src/modules/synthesize/degradation-handler.ts
+  schemas:
+    - DigestResult
+    - SourceRef
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY1
+  category: data
+  mode: create
+- id: SY6
+  title: LLM client — init, health check, and retry-wrapped chat completion
+  description: >-
+    Implement createLLMClient, verifyLLMConnectivity, and callLLMWithRetry. The
+    client uses an
+
+    OpenAI-compatible HTTP client with custom baseURL. callLLMWithRetry
+    implements exponential backoff
+
+    for 429/5x
+  requirements:
+    - US-SY-001
+    - US-SY-006
+    - NFR-SY-001
+    - NFR-SY-002
+    - NFR-SY-003
+    - NFR-SY-006
+    - DC-SY-001
+    - DC-SY-002
+  files:
+    - src/modules/synthesize/llm-client.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - LLMCallOptions
+    - RetryConfig
+  dependsOn:
+    - BOOTSTRAP
+    - SY1
+  category: service
+  mode: create
+- id: SY7
+  title: Batch-and-merge token-overflow handler
+  description: >-
+    Implement batchAndMerge that splits content items into token-safe batches,
+    synthesizes each batch
+
+    via LLM call, collects intermediate digests, and merges them via a final
+    merge LLM call.
+
+    Recursively r
+  requirements:
+    - US-SY-005
+    - NFR-SY-001
+    - NFR-SY-005
+  files:
+    - src/modules/synthesize/batch-merger.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - LLMCallOptions
+    - DigestResult
+  dependsOn:
+    - BOOTSTRAP
+    - SY2
+    - SY3
+    - SY4
+    - SY5
+    - SY6
+  category: service
+  mode: create
+- id: SY8
+  title: Main synthesizer orchestrator — synthesize and synthesizeSingle
+  description: >-
+    Implement the public entry points synthesize() and synthesizeSingle(). The
+    orchestrator ties together
+
+    prompt building, token estimation, single-call vs batch-and-merge routing,
+    response parsing, sourc
+  requirements:
+    - US-SY-003
+    - US-SY-004
+    - US-SY-005
+    - US-SY-007
+    - US-SY-008
+    - US-SY-009
+    - US-SY-010
+    - BG-SY-001
+    - BG-SY-002
+    - BG-SY-003
+    - NFR-SY-001
+    - NFR-SY-002
+    - NFR-SY-004
+    - NFR-SY-005
+    - DC-SY-003
+    - DC-SY-005
+  files:
+    - src/modules/synthesize/synthesizer.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - DigestResult
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY2
+    - SY3
+    - SY4
+    - SY5
+    - SY6
+    - SY7
+  category: service
+  mode: create
+- id: SY9
+  title: Synthesize module public exports (index.ts)
+  description: >-
+    Create the barrel index.ts that re-exports the public API of the synthesize
+    module for consumption
+
+    by the Pipeline Orchestration layer. Exports synthesize, synthesizeSingle,
+    and optionally
+
+    createLLMCl
+  requirements:
+    - US-SY-001
+    - US-SY-003
+    - US-SY-004
+    - DC-SY-004
+  files:
+    - src/modules/synthesize/index.ts
+  schemas:
+    - SynthesizeConfig
+    - DigestResult
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY6
+    - SY8
+  category: entry
+  mode: create
+- id: SY10
+  title: Unit tests for token-estimator, prompt-builder, and response-parser
+  description: >-
+    Write comprehensive unit tests for the pure-function components:
+    token-estimator (EN/CJK estimation
+
+    accuracy), prompt-builder (system/user/single/merge prompt structure and
+    content), and response-pars
+  requirements:
+    - US-SY-002
+    - US-SY-008
+    - US-SY-009
+    - NFR-SY-004
+  files:
+    - tests/modules/synthesize/token-estimator.test.ts
+    - tests/modules/synthesize/prompt-builder.test.ts
+    - tests/modules/synthesize/response-parser.test.ts
+  schemas:
+    - LLMResponse
+    - DigestResult
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY2
+    - SY3
+    - SY4
+  category: test
+  mode: create
+- id: SY11
+  title: Unit tests for degradation-handler and llm-client
+  description: >-
+    Write unit tests for degradation-handler (fallback DigestResult
+    construction, truncation, first-sentence
+
+    extraction) and llm-client (config validation, health check, retry logic
+    with mocked LLM respon
+  requirements:
+    - US-SY-001
+    - US-SY-006
+    - US-SY-007
+    - BG-SY-003
+    - NFR-SY-002
+    - NFR-SY-003
+    - NFR-SY-006
+  files:
+    - tests/modules/synthesize/degradation-handler.test.ts
+    - tests/modules/synthesize/llm-client.test.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - DigestResult
+    - RetryConfig
+  dependsOn:
+    - BOOTSTRAP
+    - SY5
+    - SY6
+  category: test
+  mode: create
+- id: SY12
+  title: Integration tests for batch-merger and synthesizer orchestrator
+  description: >-
+    Write integration tests for batch-merger (batch splitting, parallel
+    synthesis, merge call, recursive
+
+    re-batching) and the synthesizer orchestrator (synthesize single-call path,
+    batch routing, synthesi
+  requirements:
+    - US-SY-003
+    - US-SY-004
+    - US-SY-005
+    - US-SY-009
+    - US-SY-010
+    - BG-SY-001
+    - BG-SY-003
+    - NFR-SY-001
+    - NFR-SY-002
+    - NFR-SY-004
+    - DC-SY-005
+  files:
+    - tests/modules/synthesize/batch-merger.test.ts
+    - tests/modules/synthesize/synthesizer.test.ts
+  schemas:
+    - SynthesizeConfig
+    - LLMResponse
+    - DigestResult
+    - ContentItem
+  dependsOn:
+    - BOOTSTRAP
+    - SY7
+    - SY8
+  category: test
+  mode: create
+- id: PL1
+  title: Implement timeout guard utility
+  description: >-
+    Create the TimeoutGuard component that enforces overall pipeline timeouts
+    via AbortController.
+
+    The guard starts a timer for PIPELINE_TIMEOUT_MS, fires controller.abort()
+    on expiry so that
+
+    in-flight sc
+  requirements:
+    - US-PL-004
+    - US-PL-005
+    - US-PL-015
+    - NFR-PL-005
+  files:
+    - src/modules/pipeline-orchestration/timeout-guard.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: PL2
+  title: Implement concurrency limiter (semaphore)
+  description: >-
+    Create the concurrency limiter that enforces MAX_CONCURRENCY during parallel
+    scraping.
+
+    Uses a semaphore (acquire/release) pattern to guarantee that the number of
+    simultaneously
+
+    in-flight scrape operat
+  requirements:
+    - US-PL-003
+    - BG-PL-003
+    - NFR-PL-003
+  files:
+    - src/modules/pipeline-orchestration/concurrency-limiter.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: PL3
+  title: Define PL types, error classes, and digest formatter
+  description: >-
+    Create the foundational type definitions and error classes for the
+    pipeline-orchestration module.
+
+    Defines WebSearchParams and WebFetchParams interfaces, PipelineError and
+    PipelineTimeoutError
+
+    classes 
+  requirements:
+    - US-PL-014
+    - DC-PL-001
+  files:
+    - src/modules/pipeline-orchestration/orchestrator.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: PL4
+  title: Implement web_search pipeline flow
+  description: |
+    Placeholder.
+  requirements:
+    - US-PL-001
+    - US-PL-006
+    - US-PL-008
+    - US-PL-010
+    - US-PL-011
+    - US-PL-014
+    - US-PL-015
+    - BG-PL-001
+    - NFR-PL-001
+    - NFR-PL-004
+    - NFR-PL-006
+    - NFR-PL-007
+    - NFR-PL-008
+    - DC-PL-003
+    - DC-PL-004
+  files:
+    - src/modules/pipeline-orchestration/web-search-pipeline.ts
+  schemas:
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+    - PL1
+    - PL2
+    - PL3
+  category: service
+  mode: create
+- id: PL5
+  title: Implement web_fetch pipeline flow
+  description: |
+    Placeholder.
+  requirements:
+    - US-PL-002
+    - US-PL-007
+    - US-PL-009
+    - NFR-PL-002
+    - NFR-PL-004
+    - NFR-PL-008
+    - DC-PL-003
+  files:
+    - src/modules/pipeline-orchestration/web-fetch-pipeline.ts
+  schemas:
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+    - PL1
+    - PL3
+  category: service
+  mode: create
+- id: PL6
+  title: Implement orchestrator entry functions
+  description: >-
+    Extend orchestrator.ts with the public runWebSearch and runWebFetch entry
+    functions.
+
+    These functions read PipelineConfig from the shared config singleton, create
+    a per-invocation
+
+    TimeoutGuard, delegat
+  requirements:
+    - US-PL-001
+    - US-PL-002
+    - US-PL-004
+    - US-PL-005
+    - US-PL-012
+    - US-PL-013
+    - BG-PL-002
+    - NFR-PL-006
+    - DC-PL-002
+    - DC-PL-005
+  files:
+    - src/modules/pipeline-orchestration/orchestrator.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+    - PL3
+    - PL4
+    - PL5
+  category: service
+  mode: extend
+- id: PL7
+  title: Create pipeline-orchestration barrel exports
+  description: >-
+    Create the index.ts barrel file that re-exports the public API of the
+    pipeline-orchestration
+
+    module. Exports runWebSearch, runWebFetch, createPipelineError,
+    createPipelineTimeoutError,
+
+    and the type in
+  requirements:
+    - US-PL-001
+    - US-PL-002
+  files:
+    - src/modules/pipeline-orchestration/index.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+    - PL3
+    - PL6
+  category: entry
+  mode: create
+- id: PL8
+  title: Test timeout guard and concurrency limiter
+  description: >-
+    Create unit tests for the TimeoutGuard and ConcurrencyLimiter utilities.
+    Verify timer-based
+
+    abort behavior, cleanup idempotency, signal propagation, concurrency ceiling
+    enforcement,
+
+    and abort-aware qu
+  requirements:
+    - US-PL-003
+    - US-PL-004
+    - US-PL-005
+    - US-PL-015
+    - BG-PL-003
+    - NFR-PL-003
+    - NFR-PL-005
+  files:
+    - tests/modules/pipeline-orchestration/timeout-guard.test.ts
+    - tests/modules/pipeline-orchestration/concurrency-limiter.test.ts
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - PL1
+    - PL2
+  category: test
+  mode: create
+- id: PL9
+  title: Test web_search pipeline flow
+  description: >-
+    Create integration tests for the web_search pipeline flow using mocked SR,
+    SC, DD, SY module
+
+    functions. Verify full happy path, per-URL failure isolation,
+    all-scrape-failed error,
+
+    search-stage failure
+  requirements:
+    - US-PL-001
+    - US-PL-006
+    - US-PL-008
+    - US-PL-010
+    - US-PL-011
+    - US-PL-014
+    - BG-PL-001
+    - NFR-PL-004
+    - NFR-PL-008
+  files:
+    - tests/modules/pipeline-orchestration/web-search-pipeline.test.ts
+  schemas:
+    - PipelineError
+  dependsOn:
+    - BOOTSTRAP
+    - PL4
+  category: test
+  mode: create
+- id: PL10
+  title: Test web_fetch pipeline flow
+  description: >-
+    Create integration tests for the web_fetch pipeline flow using mocked SC and
+    SY functions.
+
+    Verify happy path, scrape failure error messages (HTTP/timeout/DNS),
+    empty-content handling,
+
+    synthesis-failur
+  requirements:
+    - US-PL-002
+    - US-PL-007
+    - US-PL-009
+    - NFR-PL-002
+    - NFR-PL-008
+  files:
+    - tests/modules/pipeline-orchestration/web-fetch-pipeline.test.ts
+  schemas:
+    - PipelineError
+    - PipelineTimeoutError
+  dependsOn:
+    - BOOTSTRAP
+    - PL5
+  category: test
+  mode: create
+- id: PL11
+  title: Test orchestrator entry functions
+  description: >-
+    Create integration tests for the runWebSearch and runWebFetch entry
+    functions. Verify config
+
+    reading, timeout guard lifecycle, final logging, outcome-based
+    throw-vs-return decisions,
+
+    and statelessness
+  requirements:
+    - US-PL-012
+    - US-PL-013
+    - BG-PL-002
+    - DC-PL-002
+    - DC-PL-005
+  files:
+    - tests/modules/pipeline-orchestration/orchestrator.test.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+  dependsOn:
+    - BOOTSTRAP
+    - PL6
+    - PL7
+  category: test
+  mode: create
+- id: MC1
+  title: Parameter Validation with Zod Schemas
+  description: >-
+    Create validation.ts implementing Zod-based parameter validation for MCP
+    tool calls.
+
+    Defines WebSearchParams and WebFetchParams TypeScript interfaces,
+    ValidationResult<T>
+
+    discriminated union type, and
+  requirements:
+    - US-MC-010
+    - DC-MC-003
+    - DC-MC-004
+  files:
+    - src/modules/mcp-server/validation.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+    - ValidationResultSuccess
+    - ValidationResultFailure
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: MC2
+  title: MCP Tool Definitions and JSON Schema Contracts
+  description: >-
+    Create tool-definitions.ts with static MCP Tool definition objects for
+    web_search and
+
+    web_fetch. Each definition includes name, description, and a JSON Schema
+    draft 2020-12
+
+    inputSchema with type objec
+  requirements:
+    - US-MC-003
+    - US-MC-004
+    - US-MC-005
+    - BG-MC-002
+    - DC-MC-003
+    - DC-MC-004
+  files:
+    - src/modules/mcp-server/tool-definitions.ts
+  schemas:
+    - ToolDefinition
+    - WebSearchInputSchema
+    - WebFetchInputSchema
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: MC3
+  title: Tool Call Dispatch and Response Formatting
+  description: >-
+    Create tool-handlers.ts implementing the tool-call dispatch layer. Provides
+    dispatchToolCall
+
+    (routes by name, catches all exceptions), handleWebSearch and handleWebFetch
+    (validate params,
+
+    invoke injec
+  requirements:
+    - US-MC-006
+    - US-MC-007
+    - US-MC-008
+    - US-MC-009
+    - US-MC-011
+    - BG-MC-003
+    - NFR-MC-002
+    - NFR-MC-004
+    - NFR-MC-005
+    - DC-MC-003
+    - DC-MC-007
+  files:
+    - src/modules/mcp-server/tool-handlers.ts
+  schemas:
+    - CallToolResult
+    - TextContent
+    - OrchestrationHandlers
+  dependsOn:
+    - BOOTSTRAP
+    - MC1
+    - MC2
+  category: service
+  mode: create
+- id: MC4
+  title: MCP Server Lifecycle and Stdio Transport
+  description: >-
+    Create server.ts implementing the MCP server lifecycle using
+    @modelcontextprotocol/sdk.
+
+    Provides createServer (configures Server with tools capability, registers
+    tools/list and
+
+    tools/call handlers), s
+  requirements:
+    - US-MC-001
+    - US-MC-002
+    - US-MC-005
+    - US-MC-013
+    - US-MC-014
+    - BG-MC-001
+    - BG-MC-002
+    - BG-MC-003
+    - NFR-MC-001
+    - NFR-MC-002
+    - NFR-MC-003
+    - NFR-MC-005
+    - NFR-MC-006
+    - DC-MC-001
+    - DC-MC-002
+    - DC-MC-004
+    - DC-MC-007
+  files:
+    - src/modules/mcp-server/server.ts
+  schemas:
+    - CreateServerOptions
+    - ServerInfo
+  dependsOn:
+    - BOOTSTRAP
+    - MC2
+    - MC3
+  category: service
+  mode: create
+- id: MC5
+  title: Public Barrel and Process Entry Point
+  description: >-
+    Create the mcp-server module barrel (index.ts) re-exporting createServer,
+    startServer, and
+
+    shutdown. Create the process entry point (src/index.ts) with #!/usr/bin/env
+    node shebang that
+
+    validates LLM_A
+  requirements:
+    - US-MC-001
+    - US-MC-012
+    - DC-MC-005
+    - DC-MC-006
+    - DC-MC-007
+  files:
+    - src/modules/mcp-server/index.ts
+    - src/index.ts
+  schemas:
+    - OrchestrationHandlers
+    - CreateServerOptions
+    - ServerInfo
+  dependsOn:
+    - MC4
+    - PL1
+    - BOOTSTRAP
+  category: entry
+  mode: create
+- id: MC6
+  title: Unit Tests for Validation and Tool Definitions
+  description: >-
+    Create test files for validation.ts and tool-definitions.ts. Validation
+    tests cover valid
+
+    inputs, missing required fields, invalid types, default values,
+    snake_case-to-camelCase
+
+    mapping, and additiona
+  requirements:
+    - US-MC-003
+    - US-MC-004
+    - US-MC-005
+    - US-MC-010
+    - BG-MC-002
+  files:
+    - tests/modules/mcp-server/validation.test.ts
+    - tests/modules/mcp-server/tool-definitions.test.ts
+  schemas:
+    - WebSearchParams
+    - WebFetchParams
+    - ValidationResultSuccess
+    - ValidationResultFailure
+    - ToolDefinition
+    - WebSearchInputSchema
+    - WebFetchInputSchema
+  dependsOn:
+    - BOOTSTRAP
+    - MC1
+    - MC2
+  category: test
+  mode: create
+- id: MC7
+  title: Unit Tests for Tool Dispatch and Response Formatting
+  description: >-
+    Create test file for tool-handlers.ts covering dispatch routing, validation
+    failure paths,
+
+    success/error response formatting, truncation at 25000 chars, timeout error
+    handling,
+
+    generic error handling,
+  requirements:
+    - US-MC-006
+    - US-MC-007
+    - US-MC-008
+    - US-MC-009
+    - US-MC-011
+    - NFR-MC-004
+    - NFR-MC-005
+  files:
+    - tests/modules/mcp-server/tool-handlers.test.ts
+  schemas:
+    - CallToolResult
+    - TextContent
+    - OrchestrationHandlers
+  dependsOn:
+    - BOOTSTRAP
+    - MC3
+  category: test
+  mode: create
+- id: MC8
+  title: Integration Tests for Server Lifecycle and Transport
+  description: >-
+    Create test file for server.ts covering createServer configuration (tools
+    capability, handler
+
+    registration), startServer stdio transport connection, shutdown grace period
+    behavior, and
+
+    signal handling
+  requirements:
+    - US-MC-001
+    - US-MC-002
+    - US-MC-005
+    - US-MC-013
+    - US-MC-014
+    - BG-MC-001
+    - BG-MC-003
+    - NFR-MC-001
+    - NFR-MC-002
+    - NFR-MC-003
+  files:
+    - tests/modules/mcp-server/server.test.ts
+  schemas:
+    - CreateServerOptions
+    - ServerInfo
+  dependsOn:
+    - BOOTSTRAP
+    - MC4
+  category: test
+  mode: create
+- id: SRS1
+  title: Define shared SearchResult and SearchOptions TypeScript interfaces
+  description: >-
+    Create the shared type definitions in src/shared/types/search.ts and
+    re-export from
+
+    src/shared/types/index.ts. These interfaces define the public contract
+    consumed by
+
+    downstream pipeline modules (scra
+  requirements:
+    - US-SR-012
+    - DC-SR-002
+    - DC-SR-003
+  files:
+    - src/shared/types/search.ts
+    - src/shared/types/index.ts
+  schemas:
+    - SearchResult
+    - SearchOptions
+  dependsOn:
+    - BOOTSTRAP
+  category: model
+  mode: create
+- id: SRS2
+  title: Implement custom search error class hierarchy and isRetryableError classifier
+  description: >-
+    Create src/modules/search-retrieval/errors.ts with all seven custom error
+    classes
+
+    (SearchError base, SearchTimeoutError, SearchParseError, SearchFailedError,
+
+    SearchUnavailableError, ConfigurationError
+  requirements:
+    - US-SR-012
+    - NFR-SR-002
+    - NFR-SR-005
+    - DC-SR-002
+  files:
+    - src/modules/search-retrieval/errors.ts
+  schemas:
+    - SearchErrorCategory
+  dependsOn:
+    - BOOTSTRAP
+    - SRS1
+  category: service
+  mode: create
+- id: SRS3
+  title: Implement SearXNG instance pool with failover, SEARXNG_URL validation,
+    and mode selection
+  description: >-
+    Create src/modules/search-retrieval/instance-pool.ts implementing the
+    InstancePool
+
+    management layer. Reads SEARXNG_URL from appConfig to determine self-hosted
+    vs public
+
+    mode, maintains an ordered list
+  requirements:
+    - US-SR-006
+    - US-SR-007
+    - BG-SR-003
+    - NFR-SR-006
+    - DC-SR-001
+    - DC-SR-005
+    - DC-SR-007
+  files:
+    - src/modules/search-retrieval/instance-pool.ts
+  schemas:
+    - InstancePool
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+  category: service
+  mode: create
+- id: SRS4
+  title: Implement SearXNG HTTP client with AbortController timeout and native fetch
+  description: >-
+    Create src/modules/search-retrieval/searxng-client.ts implementing the HTTP
+    transport
+
+    layer. Uses Node.js 18+ global fetch (no axios/got polyfills) to send GET
+    requests to
+
+    SearXNG /search with format=
+  requirements:
+    - US-SR-001
+    - US-SR-004
+    - DC-SR-004
+    - DC-SR-006
+  files:
+    - src/modules/search-retrieval/searxng-client.ts
+  schemas:
+    - SearXNGFetchResult
+    - SearchConfig
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+  category: service
+  mode: create
+- id: SRS5
+  title: Implement SearXNG response parser with JSON validation, malformed-entry
+    skipping, and non-JSON detection
+  description: >-
+    Create src/modules/search-retrieval/response-parser.ts implementing
+    parseResponse,
+
+    validateUrl, and extractFields. Detects non-JSON responses by checking
+    Content-Type
+
+    and body prefix, JSON.parses vali
+  requirements:
+    - US-SR-002
+    - US-SR-008
+    - US-SR-009
+    - NFR-SR-004
+  files:
+    - src/modules/search-retrieval/response-parser.ts
+  schemas:
+    - SearXNGFetchResult
+    - SearXNGRawResult
+    - ParsedResult
+    - ParseOutput
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+  category: service
+  mode: create
+- id: SRS6
+  title: Implement result normalizer with score normalization, field defaults,
+    truncation, and exact-URL dedup
+  description: >-
+    Create src/modules/search-retrieval/result-normalizer.ts implementing
+    normalizeResults,
+
+    normalizeScore, deduplicateByExactUrl, truncateField, and
+    normalizeUrlForDedup.
+
+    Transforms ParsedResult[] into f
+  requirements:
+    - US-SR-003
+    - US-SR-010
+    - NFR-SR-003
+  files:
+    - src/modules/search-retrieval/result-normalizer.ts
+  schemas:
+    - ParsedResult
+    - SearchResult
+    - ParseOutput
+  dependsOn:
+    - BOOTSTRAP
+    - SRS1
+  category: service
+  mode: create
+- id: SRS7
+  title: Implement retry-failover orchestrator with backoff, query validation,
+    config resolution, and 30s ceiling
+  description: >-
+    Create src/modules/search-retrieval/retry-failover.ts implementing the core
+    search
+
+    orchestrator: search (public entry), validateQuery, resolveConfig,
+    computeBackoffDelay,
+
+    and executeWithRetryFailover.
+  requirements:
+    - US-SR-001
+    - US-SR-005
+    - US-SR-006
+    - US-SR-011
+    - BG-SR-001
+    - BG-SR-002
+    - NFR-SR-001
+    - NFR-SR-002
+    - NFR-SR-005
+    - NFR-SR-006
+  files:
+    - src/modules/search-retrieval/retry-failover.ts
+  schemas:
+    - SearchConfig
+    - SearchOptions
+    - InstancePool
+    - SearchResult
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+    - SRS3
+    - SRS4
+    - SRS5
+    - SRS6
+  category: service
+  mode: create
+- id: SRS8
+  title: Create search-retrieval module index with public API re-exports
+  description: >-
+    Create src/modules/search-retrieval/index.ts as the public entry point that
+    re-exports
+
+    the search function, SearchResult and SearchOptions types, and all seven
+    error classes.
+
+    Ensures consumers import 
+  requirements:
+    - US-SR-012
+    - DC-SR-002
+    - DC-SR-003
+  files:
+    - src/modules/search-retrieval/index.ts
+  schemas:
+    - SearchResult
+    - SearchOptions
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+    - SRS7
+  category: service
+  mode: create
+- id: SRS9
+  title: Write unit tests for search error classes and instance pool
+  description: >-
+    Create tests/modules/search-retrieval/errors.test.ts and
+
+    tests/modules/search-retrieval/instance-pool.test.ts. Error tests verify
+    inheritance
+
+    chains, exact messages, and isRetryableError classificatio
+  requirements:
+    - US-SR-006
+    - US-SR-007
+    - US-SR-012
+    - NFR-SR-004
+    - DC-SR-001
+    - DC-SR-005
+    - DC-SR-007
+  files:
+    - tests/modules/search-retrieval/errors.test.ts
+    - tests/modules/search-retrieval/instance-pool.test.ts
+  schemas:
+    - InstancePool
+    - SearchErrorCategory
+  dependsOn:
+    - BOOTSTRAP
+    - SRS2
+    - SRS3
+  category: test
+  mode: create
+- id: SRS10
+  title: Write unit tests for SearXNG client and response parser
+  description: >-
+    Create tests/modules/search-retrieval/searxng-client.test.ts and
+
+    tests/modules/search-retrieval/response-parser.test.ts. Client tests mock
+    global fetch
+
+    to verify URL construction, timeout via AbortCon
+  requirements:
+    - US-SR-001
+    - US-SR-002
+    - US-SR-004
+    - US-SR-008
+    - US-SR-009
+    - NFR-SR-004
+    - DC-SR-004
+    - DC-SR-006
+  files:
+    - tests/modules/search-retrieval/searxng-client.test.ts
+    - tests/modules/search-retrieval/response-parser.test.ts
+  schemas:
+    - SearXNGFetchResult
+    - SearXNGRawResult
+    - ParseOutput
+  dependsOn:
+    - BOOTSTRAP
+    - SRS4
+    - SRS5
+  category: test
+  mode: create
+- id: SRS11
+  title: Write unit tests for result normalizer and retry-failover orchestrator
+  description: >-
+    Create tests/modules/search-retrieval/result-normalizer.test.ts and
+
+    tests/modules/search-retrieval/retry-failover.test.ts. Normalizer tests
+    verify score
+
+    normalization, field defaults/truncation, and e
+  requirements:
+    - US-SR-003
+    - US-SR-005
+    - US-SR-010
+    - US-SR-011
+    - BG-SR-001
+    - BG-SR-002
+    - NFR-SR-001
+    - NFR-SR-003
+    - NFR-SR-005
+    - NFR-SR-006
+  files:
+    - tests/modules/search-retrieval/result-normalizer.test.ts
+    - tests/modules/search-retrieval/retry-failover.test.ts
+  schemas:
+    - SearchResult
+    - SearchConfig
+    - InstancePool
+  dependsOn:
+    - BOOTSTRAP
+    - SRS6
+    - SRS7
+  category: test
+  mode: create
+- id: README
+  title: Complete README (English + Chinese)
+  description: >-
+    Review all generated code files and update both README.md and
+    README.zh-CN.md.
+
+
+    ## What to include in README.md (English version):
+
+    1. **Project Overview** — Brief description of what the project does,
+  requirements: []
+  files:
+    - README.md
+    - README.zh-CN.md
+  schemas: []
+  dependsOn:
+    - BOOTSTRAP
+    - SC1
+    - SC2
+    - SC3
+    - SC4
+    - SC5
+    - SC6
+    - SC7
+    - SC8
+    - SC9
+    - SC10
+    - SC11
+    - SC12
+    - SC13
+    - DD1
+    - DD2
+    - DD3
+    - DD4
+    - DD5
+    - DD6
+    - DD7
+    - DD8
+    - DD9
+    - DD10
+    - DD11
+    - DD12
+    - DD13
+    - DD14
+    - DD15
+    - DD16
+    - SY1
+    - SY2
+    - SY3
+    - SY4
+    - SY5
+    - SY6
+    - SY7
+    - SY8
+    - SY9
+    - SY10
+    - SY11
+    - SY12
+    - PL1
+    - PL2
+    - PL3
+    - PL4
+    - PL5
+    - PL6
+    - PL7
+    - PL8
+    - PL9
+    - PL10
+    - PL11
+    - MC1
+    - MC2
+    - MC3
+    - MC4
+    - MC5
+    - MC6
+    - MC7
+    - MC8
+    - SRS1
+    - SRS2
+    - SRS3
+    - SRS4
+    - SRS5
+    - SRS6
+    - SRS7
+    - SRS8
+    - SRS9
+    - SRS10
+    - SRS11
+  category: entry
+  mode: extend

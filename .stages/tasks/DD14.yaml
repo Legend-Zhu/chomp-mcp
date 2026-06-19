@@ -1,0 +1,33 @@
+id: DD14
+title: Tests — similarity computer
+description: >
+  Implement `tests/modules/deduplicate/similarity-computer.test.ts` covering
+  Jaccard coefficient edge
+
+  cases: identical sets, disjoint sets, empty sets, partial overlap, and the
+  O(min) efficiency property.
+requirements:
+  - US-DD-006
+  - NFR-DD-002
+acceptanceCriteria:
+  - Tests identical sets return 1.0
+  - Tests disjoint sets return 0.0
+  - Tests both-empty sets return 0.0
+  - Tests partial overlap returns correct ratio (e.g., 1 shared out of 3 unique
+    → 0.333)
+  - Tests result is always in [0.0, 1.0]
+schemas: []
+files:
+  - tests/modules/deduplicate/similarity-computer.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD6
+category: test
+implementationSteps:
+  - Import jaccardSimilarity
+  - Write test with identical sets → expect 1.0
+  - Write test with disjoint sets → expect 0.0
+  - Write test with empty sets → expect 0.0
+  - Write test with partial overlap → verify exact fraction
+  - Write test with asymmetric set sizes

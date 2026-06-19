@@ -1,0 +1,80 @@
+id: SRS11
+title: Write unit tests for result normalizer and retry-failover orchestrator
+description: >
+  Create tests/modules/search-retrieval/result-normalizer.test.ts and
+
+  tests/modules/search-retrieval/retry-failover.test.ts. Normalizer tests verify
+  score
+
+  normalization, field defaults/truncation, and exact-URL dedup. Retry-failover
+  tests
+
+  mock client/parser to verify backoff, failover, 30s ceiling, structured
+  logging, and
+
+  error classification.
+requirements:
+  - US-SR-003
+  - US-SR-005
+  - US-SR-010
+  - US-SR-011
+  - BG-SR-001
+  - BG-SR-002
+  - NFR-SR-001
+  - NFR-SR-003
+  - NFR-SR-005
+  - NFR-SR-006
+acceptanceCriteria:
+  - result-normalizer.test.ts verifies title default "(untitled)" and snippet
+    default "" for missing fields
+  - result-normalizer.test.ts verifies title truncation at 497 chars + "..." and
+    snippet at 997 chars + "..."
+  - result-normalizer.test.ts verifies score normalization by max-score division
+    when scores present
+  - result-normalizer.test.ts verifies positional score fallback (1.0 -
+    index/total) when no scores provided
+  - result-normalizer.test.ts verifies single result gets score 1.0
+  - result-normalizer.test.ts verifies exact-URL dedup retains highest-scored
+    entry and is fragment-insensitive
+  - result-normalizer.test.ts verifies results sorted by descending score and
+    truncated to maxResults
+  - retry-failover.test.ts verifies validateQuery rejects empty/whitespace and
+    >500 char queries with exact ValidationError messages
+  - retry-failover.test.ts verifies resolveConfig reads env vars with correct
+    defaults
+  - retry-failover.test.ts verifies exponential backoff with jitter range and
+    Retry-After honoring for 429
+  - retry-failover.test.ts verifies retry on timeout/network/5xx and failover to
+    next instance on exhaustion
+  - retry-failover.test.ts verifies SearchUnavailableError when all public
+    instances fail and SearchFailedError for self-hosted
+  - retry-failover.test.ts verifies 30s overall ceiling throws SearchFailedError
+  - retry-failover.test.ts verifies SEARCH START/OK/RETRY/FAILED log lines
+    written to stderr only (never stdout)
+  - retry-failover.test.ts verifies failover promotion moves successful instance
+    to front
+schemas:
+  - SearchResult
+  - SearchConfig
+  - InstancePool
+files:
+  - tests/modules/search-retrieval/result-normalizer.test.ts
+  - tests/modules/search-retrieval/retry-failover.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS6
+  - SRS7
+category: test
+implementationSteps:
+  - In result-normalizer.test.ts, construct ParsedResult fixtures with edge
+    cases for scores, truncation, and duplicate URLs
+  - Test normalizeUrlForDedup strips fragments for comparison
+  - In retry-failover.test.ts, mock fetchSearXNG and parseResponse to simulate
+    success, timeout, 5xx, and 429 scenarios
+  - Mock InstancePool operations to verify cursor advancement and promotion on
+    failover
+  - Spy on process.stderr.write to assert structured log format and assert
+    process.stdout.write is never called with log content
+  - Test the 30s ceiling by mocking Date.now or using a high-resolution timer to
+    simulate elapsed time

@@ -1,0 +1,89 @@
+id: MC6
+title: Unit Tests for Validation and Tool Definitions
+description: >
+  Create test files for validation.ts and tool-definitions.ts. Validation tests
+  cover valid
+
+  inputs, missing required fields, invalid types, default values,
+  snake_case-to-camelCase
+
+  mapping, and additionalProperties rejection. Tool definition tests verify JSON
+  Schema
+
+  structure, required fields, defaults, additionalProperties:false, and
+  TOOL_DEFINITIONS array
+
+  contents.
+requirements:
+  - US-MC-003
+  - US-MC-004
+  - US-MC-005
+  - US-MC-010
+  - BG-MC-002
+acceptanceCriteria:
+  - validation.test.ts tests validateWebSearchParams with valid query returns
+    success with maxResults default 5
+  - "validation.test.ts tests validateWebSearchParams with missing query returns
+    failure with 'Missing required field: query'"
+  - validation.test.ts tests validateWebSearchParams with non-integer
+    max_results returns failure with 'max_results must be a positive integer'
+  - validation.test.ts tests validateWebSearchParams with negative max_results
+    returns failure with 'max_results must be a positive integer'
+  - validation.test.ts tests validateWebSearchParams maps max_results to
+    maxResults in output
+  - validation.test.ts tests validateWebSearchParams rejects additional unknown
+    properties
+  - validation.test.ts tests validateWebFetchParams with valid url returns
+    success
+  - "validation.test.ts tests validateWebFetchParams with invalid url returns
+    failure with 'Invalid URL format: {value}'"
+  - validation.test.ts tests validateWebFetchParams rejects additional unknown
+    properties
+  - tool-definitions.test.ts verifies WEB_SEARCH_TOOL name, description, and
+    inputSchema structure
+  - tool-definitions.test.ts verifies WEB_SEARCH_TOOL.inputSchema.required is
+    ['query'] and additionalProperties is false
+  - tool-definitions.test.ts verifies WEB_FETCH_TOOL name, description, and
+    inputSchema structure
+  - tool-definitions.test.ts verifies WEB_FETCH_TOOL.inputSchema.required is
+    ['url'] and additionalProperties is false
+  - tool-definitions.test.ts verifies TOOL_DEFINITIONS has exactly 2 entries
+  - All tests pass under vitest
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+  - ValidationResultSuccess
+  - ValidationResultFailure
+  - ToolDefinition
+  - WebSearchInputSchema
+  - WebFetchInputSchema
+files:
+  - tests/modules/mcp-server/validation.test.ts
+  - tests/modules/mcp-server/tool-definitions.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - MC1
+  - MC2
+category: test
+implementationSteps:
+  - Import { describe, it, expect } from 'vitest'
+  - In validation.test.ts import { validateWebSearchParams,
+    validateWebFetchParams } from
+    '../../../src/modules/mcp-server/validation.js'
+  - Write describe('validateWebSearchParams') block with test cases for valid
+    input, missing query, empty query, non-integer max_results, negative
+    max_results, default maxResults, snake_case mapping, and additional
+    properties rejection
+  - Write describe('validateWebFetchParams') block with test cases for valid
+    url, invalid url format, missing url, and additional properties rejection
+  - In tool-definitions.test.ts import { WEB_SEARCH_TOOL, WEB_FETCH_TOOL,
+    TOOL_DEFINITIONS } from
+    '../../../src/modules/mcp-server/tool-definitions.js'
+  - Write describe('WEB_SEARCH_TOOL') block verifying name, description,
+    inputSchema.type, inputSchema.properties, inputSchema.required,
+    inputSchema.additionalProperties
+  - Write describe('WEB_FETCH_TOOL') block verifying name, description,
+    inputSchema.type, inputSchema.properties (url with format uri),
+    inputSchema.required, inputSchema.additionalProperties
+  - Write test verifying TOOL_DEFINITIONS length is 2 and contains both tools

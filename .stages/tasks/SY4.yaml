@@ -1,0 +1,67 @@
+id: SY4
+title: Multi-strategy response parser and source reconciler
+description: >
+  Implement parseDigestResponse and reconcileSources. parseDigestResponse uses a
+  multi-strategy approach:
+
+  first attempts markdown header parsing (## Answer, ## Key Points, ## Sources),
+  falls back to heuristic
+
+  keyword proximity detection. Extracts URLs via regex and pairs each with
+  nearest preceding title text.
+
+  reconcileSources appends any known input sources missing from the parsed
+  result.
+requirements:
+  - US-SY-008
+  - US-SY-003
+  - NFR-SY-004
+acceptanceCriteria:
+  - parseDigestResponse(rawResponse, knownSources) returns a DigestResult with
+    answer, keyPoints, and sources
+  - "When markdown headers (## Answer, ## Key Points, ## Sources) are present,
+    parser extracts each section correctly"
+  - Key Points section is split by bullet items (lines starting with -, *, or
+    numbered) into individual trimmed strings
+  - Sources section URLs are extracted via URL regex pattern and paired with
+    nearest preceding title text
+  - If no recognizable 'Answer' section, the entire response is treated as the
+    answer and keyPoints is empty array
+  - If parsed answer field is empty, parseDigestResponse throws or signals
+    degradation (returning answer as full response as fallback, with empty
+    keyPoints)
+  - reconcileSources(parsed, knownSources) appends any knownSource URLs not
+    already present in parsed.sources to the sources array
+  - Functions are pure — no side effects, no stdout output
+schemas:
+  - DigestResult
+  - SourceRef
+  - ContentItem
+files:
+  - src/modules/synthesize/response-parser.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY1
+category: data
+implementationSteps:
+  - Import DigestResult and SourceRef types from shared types
+  - Define a URL regex pattern (e.g.,
+    /https?:\/\/[\w\-.~:/?#\[\]@!$&'()*+,;=%]+/g) for extracting URLs from text
+  - "Implement strategy 1 (parseMarkdownHeaders): split rawResponse by lines,
+    detect section headers matching /^#{1,3}\\s*(Answer|Key Points|Sources)/i,
+    extract content between headers"
+  - "Implement strategy 2 (heuristicKeywordProximity): if no markdown headers
+    found, search for keywords 'Answer', 'Key Points', 'Sources' in text and
+    split by proximity"
+  - "Implement parseKeyPoints(sectionText): split by newlines, filter lines
+    starting with -, *, or digit-dot, trim each, return as string[]"
+  - "Implement parseSources(sectionText, knownSources): extract all URLs via
+    regex, for each URL find the nearest preceding non-URL text line as title;
+    pair into SourceRef[]"
+  - "Implement parseDigestResponse: try strategy 1, if answer section empty try
+    strategy 2, if still empty set answer to full rawResponse text and keyPoints
+    to empty array"
+  - "Implement reconcileSources(parsed, knownSources): build a Set of existing
+    URLs in parsed.sources, append any knownSource whose url is not in the set"
+  - Export both functions

@@ -1,0 +1,143 @@
+id: README
+title: Complete README (English + Chinese)
+description: >-
+  Review all generated code files and update both README.md and README.zh-CN.md.
+
+
+  ## What to include in README.md (English version):
+
+  1. **Project Overview** — Brief description of what the project does, key
+  modules, and how they interact.
+
+  2. **Project Structure** — Directory tree with brief annotations for each
+  major directory/module.
+
+  3. **Getting Started** — Step-by-step instructions to install dependencies,
+  build, and run the project (both backend and frontend if applicable). Include
+  exact commands.
+
+  4. **API Overview** (if applicable) — List the main API endpoints with method,
+  path, and brief description.
+
+  5. **Module Overview** — Brief description of each module's responsibility and
+  key files.
+
+
+  ## README.zh-CN.md（中文版）需包含相同内容，用中文撰写：
+
+  1. **项目概述** — 项目功能简介、核心模块及其交互方式。
+
+  2. **项目结构** — 目录树，标注各主要目录/模块的用途。
+
+  3. **快速开始** — 安装依赖、构建、运行的完整步骤和命令。
+
+  4. **API 概览**（如适用）— 列出主要 API 端点、方法、路径和简要说明。
+
+  5. **模块说明** — 各模块的职责和关键文件。
+
+
+  For each file (README.md in English, README.zh-CN.md in Chinese):
+
+  - **Exists with placeholder "<!-- SCDD_CODE_INSTRUCTIONS -->"**: replace the
+  placeholder with project documentation. Preserve all content above it.
+
+  - **Exists WITHOUT placeholder**: prepend the SCDD header (paradigm
+  introduction, core principles, agent pipeline), then append the project
+  documentation.
+
+  - **Does NOT exist**: create it with SCDD header + project documentation.
+
+  Always add a language switch link at the top of each file, right after the
+  title (e.g. "[中文文档](./README.zh-CN.md)").
+requirements: []
+acceptanceCriteria:
+  - Both README.md and README.zh-CN.md placeholders replaced with project
+    documentation
+  - Includes working build and run commands
+  - Directory structure documented
+  - All existing SCDD sections preserved
+schemas: []
+files:
+  - README.md
+  - README.zh-CN.md
+mode: extend
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+  - SC2
+  - SC3
+  - SC4
+  - SC5
+  - SC6
+  - SC7
+  - SC8
+  - SC9
+  - SC10
+  - SC11
+  - SC12
+  - SC13
+  - DD1
+  - DD2
+  - DD3
+  - DD4
+  - DD5
+  - DD6
+  - DD7
+  - DD8
+  - DD9
+  - DD10
+  - DD11
+  - DD12
+  - DD13
+  - DD14
+  - DD15
+  - DD16
+  - SY1
+  - SY2
+  - SY3
+  - SY4
+  - SY5
+  - SY6
+  - SY7
+  - SY8
+  - SY9
+  - SY10
+  - SY11
+  - SY12
+  - PL1
+  - PL2
+  - PL3
+  - PL4
+  - PL5
+  - PL6
+  - PL7
+  - PL8
+  - PL9
+  - PL10
+  - PL11
+  - MC1
+  - MC2
+  - MC3
+  - MC4
+  - MC5
+  - MC6
+  - MC7
+  - MC8
+  - SRS1
+  - SRS2
+  - SRS3
+  - SRS4
+  - SRS5
+  - SRS6
+  - SRS7
+  - SRS8
+  - SRS9
+  - SRS10
+  - SRS11
+category: entry
+implementationSteps:
+  - Read both README.md and README.zh-CN.md to find the placeholder comments
+  - Scan all generated source files to understand the project structure
+  - Write English project documentation in README.md
+  - Write Chinese project documentation in README.zh-CN.md
+  - Replace only the placeholder comments, preserving all content above them

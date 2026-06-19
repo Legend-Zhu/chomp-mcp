@@ -1,0 +1,40 @@
+id: PL7
+title: Create pipeline-orchestration barrel exports
+description: >
+  Create the index.ts barrel file that re-exports the public API of the
+  pipeline-orchestration
+
+  module. Exports runWebSearch, runWebFetch, createPipelineError,
+  createPipelineTimeoutError,
+
+  and the type interfaces WebSearchParams, WebFetchParams, PipelineError,
+  PipelineTimeoutError.
+requirements:
+  - US-PL-001
+  - US-PL-002
+acceptanceCriteria:
+  - index.ts re-exports runWebSearch and runWebFetch from orchestrator.ts
+  - index.ts re-exports createPipelineError and createPipelineTimeoutError
+    factory functions
+  - index.ts re-exports WebSearchParams, WebFetchParams type interfaces
+  - index.ts re-exports PipelineError, PipelineTimeoutError error classes
+  - A consumer importing from the module root receives all public symbols
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+  - PipelineError
+  - PipelineTimeoutError
+files:
+  - src/modules/pipeline-orchestration/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL3
+  - PL6
+category: entry
+implementationSteps:
+  - Export runWebSearch, runWebFetch from ./orchestrator
+  - Export createPipelineError, createPipelineTimeoutError from ./orchestrator
+  - Export type WebSearchParams, WebFetchParams from ./orchestrator
+  - Export PipelineError, PipelineTimeoutError classes from ./orchestrator

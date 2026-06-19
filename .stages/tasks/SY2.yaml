@@ -1,0 +1,48 @@
+id: SY2
+title: Token estimator with EN/CJK heuristic
+description: >
+  Implement the heuristic token estimation function that detects CJK content and
+  applies different
+
+  character-to-token ratios (1 token per 4 chars for English, 1 token per 1.5
+  chars for CJK).
+
+  This pure function has no external dependencies beyond types and is used by
+  synthesizer and batch-merger
+
+  to decide between single-call and batch-and-merge routing.
+requirements:
+  - US-SY-009
+  - NFR-SY-005
+acceptanceCriteria:
+  - "estimateTokens(text: string): number function is exported and returns a
+    non-negative integer"
+  - For pure English text (~1 token per 4 chars), estimate is approximately
+    text.length / 4
+  - For CJK-heavy text (~1 token per 1.5 chars), estimate is approximately
+    text.length / 1.5
+  - Mixed content is handled by scanning for CJK Unicode ranges (U+4E00–U+9FFF,
+    U+3040–U+30FF, U+AC00–U+D7AF) and applying the appropriate ratio per
+    character segment
+  - Empty string input returns 0
+  - Function logs nothing to stdout; writes only to stderr if logging is needed
+schemas:
+  - LLMCallOptions
+files:
+  - src/modules/synthesize/token-estimator.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY1
+category: model
+implementationSteps:
+  - Import the shared logger from ../../shared/utils/logger.ts for any stderr
+    logging
+  - "Define CJK Unicode range check helper functions: isCJK(codePoint) covering
+    CJK Unified Ideographs, Hiragana/Katakana, and Hangul"
+  - "Implement estimateTokens(text: string): iterate through text characters,
+    classify each as CJK or non-CJK"
+  - "Calculate token estimate as: cjkChars/1.5 + nonCjkChars/4, rounded up to
+    nearest integer"
+  - Return 0 for empty or whitespace-only input
+  - Export estimateTokens function

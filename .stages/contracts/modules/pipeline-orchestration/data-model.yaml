@@ -1,0 +1,79 @@
+schemas:
+  WebSearchParams:
+    fields:
+      query:
+        type: string
+        required: true
+        description: "Non-empty search query string"
+      maxResults:
+        type: integer
+        required: false
+        minimum: 1
+        description: "Maximum number of results to request from the search stage (default: 5)"
+      focus:
+        type: string
+        required: false
+        description: "Optional focus directive passed to the synthesis stage for emphasis"
+
+  WebFetchParams:
+    fields:
+      url:
+        type: string
+        required: true
+        description: "Target URL to fetch and synthesize"
+      focus:
+        type: string
+        required: false
+        description: "Optional focus directive passed to the synthesis stage for emphasis"
+
+  PipelineError:
+    description: "Error thrown by the pipeline for hard failures that MC should present as isError: true. Extends AppError."
+    extends: AppError
+    fields:
+      name:
+        type: string
+        required: true
+        description: "Always 'PipelineError'"
+      message:
+        type: string
+        required: true
+        description: "Human-readable error message including failure context"
+      category:
+        type: string
+        required: true
+        description: "Error category from the shared ErrorCategory enum (http_error, timeout, network, parse_error, validation, config)"
+        enum_ref: ErrorCategory
+      failedUrls:
+        type: array
+        required: false
+        items:
+          type: FailedUrl
+        description: "URLs that failed during scraping, provided for diagnostic context"
+
+  PipelineTimeoutError:
+    description: "Error thrown when the overall pipeline timeout elapses during an unrecoverable phase (e.g., during scrape in web_fetch). Extends PipelineError."
+    extends: PipelineError
+    fields:
+      name:
+        type: string
+        required: true
+        description: "Always 'PipelineTimeoutError'"
+      message:
+        type: string
+        required: true
+        description: "Timeout error message including the URL or stage that timed out"
+      category:
+        type: string
+        required: true
+        description: "Always 'timeout'"
+      timeoutMs:
+        type: integer
+        required: true
+        minimum: 0
+        description: "The configured timeout value (in milliseconds) that was exceeded"
+      failedUrls:
+        type: array
+        required: false
+        items:
+          type: FailedUrl
+        description: "URLs that failed, if applicable"

@@ -1,0 +1,66 @@
+id: SRS6
+title: Implement result normalizer with score normalization, field defaults,
+  truncation, and exact-URL dedup
+description: >
+  Create src/modules/search-retrieval/result-normalizer.ts implementing
+  normalizeResults,
+
+  normalizeScore, deduplicateByExactUrl, truncateField, and
+  normalizeUrlForDedup.
+
+  Transforms ParsedResult[] into final SearchResult[]: applies title/snippet
+  defaults and
+
+  truncation, normalizes scores to [0,1], removes exact duplicate URLs
+  (fragment-insensitive),
+
+  sorts by descending score, and truncates to maxResults. Designed for memory
+  efficiency —
+
+  releases raw data for GC after processing.
+requirements:
+  - US-SR-003
+  - US-SR-010
+  - NFR-SR-003
+acceptanceCriteria:
+  - normalizeResults applies title default "(untitled)" when empty/missing,
+    snippet default "" when empty/missing
+  - Title exceeding 500 chars is truncated to 497 chars plus "..."
+  - Snippet exceeding 1000 chars is truncated to 997 chars plus "..."
+  - normalizeScore divides each score by max score when SearXNG provides scores;
+    assigns positional score (1.0 - index/total) when no scores provided
+  - Single result always receives score of 1.0
+  - deduplicateByExactUrl removes entries with identical URLs (case-sensitive),
+    treating fragment-only differences as duplicates, retaining highest-scored
+    entry per URL
+  - Dedup logs "Removed {N} exact-duplicate URLs from SearXNG response" to
+    stderr when removals occur
+  - Results sorted by descending score then truncated to maxResults
+  - Peak memory does not retain more than maxResults normalized SearchResult
+    objects; raw ParsedResult array is released for GC
+  - normalizeUrlForDedup strips URL fragment (#...) for fragment-insensitive
+    comparison
+schemas:
+  - ParsedResult
+  - SearchResult
+  - ParseOutput
+files:
+  - src/modules/search-retrieval/result-normalizer.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS1
+category: service
+implementationSteps:
+  - Implement truncateField(value, maxLength) returning truncated string with
+    "..." suffix when length exceeded
+  - Implement normalizeUrlForDedup(url) that strips fragment via URL parsing or
+    string split on '#'
+  - Implement normalizeScore(results) checking if scores present; if so divide
+    by max, else assign 1.0-(index/total)
+  - Implement deduplicateByExactUrl using a Map keyed by fragment-stripped URL,
+    retaining highest score entry
+  - Implement normalizeResults orchestrating field defaults, truncation, score
+    normalization, dedup, sort by score descending, and maxResults truncation
+  - Ensure intermediate arrays are scoped to allow GC after normalization step
+    completes

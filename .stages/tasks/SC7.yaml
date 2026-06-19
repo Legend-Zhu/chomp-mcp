@@ -1,0 +1,72 @@
+id: SC7
+title: HTTP fetcher with redirects, retries, and error handling
+description: >
+  Implement http-fetcher.ts using Node.js native fetch. Handles HTTP redirect
+  following
+
+  (max 5 hops), transient error retries with exponential backoff (1s, 3s), HTTP
+  429
+
+  Retry-After handling, HTTP 4xx/5xx error status classification, per-request
+  timeout via
+
+  AbortController, and transparent decompression of gzip/br/deflate. Returns a
+  FetchResult
+
+  with status code, final URL, body bytes, and error info.
+requirements:
+  - US-SC-001
+  - US-SC-003
+  - US-SC-005
+  - US-SC-006
+  - US-SC-010
+  - DC-SC-003
+acceptanceCriteria:
+  - fetchUrl(url, config) issues a GET request via native fetch and returns
+    FetchResult with 2xx status body bytes
+  - Follows 301/302/307/308 redirects up to config.maxRedirects (5); stores
+    finalUrl after redirect chain
+  - "When redirect count exceeds maxRedirects, returns success: false with error
+    'Redirect loop or too many redirects'"
+  - Transient errors (ECONNRESET, ETIMEDOUT, ECONNREFUSED, EAI_AGAIN) are
+    retried up to 2 times with exponential backoff (1s, 3s)
+  - Non-transient errors (ENOTFOUND) are NOT retried and returned immediately
+  - HTTP 429 triggers a retry after the Retry-After header value (or default
+    3000ms)
+  - HTTP 5xx triggers one retry
+  - HTTP 4xx (except 429) are returned as errors without retry
+  - Request times out after config.timeoutMs using AbortController; returns
+    error 'Fetch timed out after {N}ms'
+  - Compressed responses (gzip/br/deflate) are decompressed transparently before
+    returning bodyBytes
+  - FetchResult.retryAfterMs is populated from Retry-After header when present
+  - "Native fetch's redirect: 'manual' is used to manually follow redirects with
+    hop counting"
+schemas:
+  - FetchResult
+files:
+  - src/modules/scrape-extract/http-fetcher.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import FetchResult and ScrapeConfig from ./types
+  - "Define the set of transient error codes: ECONNRESET, ETIMEDOUT,
+    ECONNREFUSED, EAI_AGAIN"
+  - "Implement isTransientError(code: string): boolean helper"
+  - Implement retry with sleep helper using exponential backoff delays [1000,
+    3000]
+  - "Implement fetchUrl with manual redirect following: use fetch(url, {
+    redirect: 'manual', signal: abortSignal })"
+  - "On 3xx: parse Location header, resolve relative to current URL, increment
+    redirectCount, re-fetch"
+  - "On 429: parse Retry-After header (seconds or HTTP-date), wait, retry once"
+  - "On 5xx: retry once"
+  - "On transient error: retry up to 2 times with backoff"
+  - "On 4xx (non-429): return immediately with error"
+  - "On 2xx: read response body as Uint8Array (arrayBuffer -> Uint8Array),
+    extract Content-Type header, return success FetchResult"
+  - Set up AbortController with setTimeout for config.timeoutMs; clear on
+    completion

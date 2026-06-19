@@ -1,0 +1,69 @@
+id: DD3
+title: URL normalizer — tracking-param stripping and canonical URL form
+description: >
+  Implement `src/modules/deduplicate/url-normalizer.ts` with the `normalizeUrl`
+  function and
+
+  `TRACKING_PARAM_BLOCKLIST` constant. Uses the WHATWG URL constructor for safe
+  parsing (NFR-DD-006).
+
+  Normalization steps: convert http→https, lowercase hostname, remove fragment,
+  remove default ports
+
+  (80 for http, 443 for https), remove trailing slash when path length > 1,
+  strip tracking parameters
+
+  (built-in blocklist + extra params), sort remaining query parameters
+  alphabetically by key. Preserve
+
+  percent-encoding in the path without double-decoding.
+requirements:
+  - US-DD-001
+  - US-DD-002
+  - DC-DD-006
+  - NFR-DD-006
+acceptanceCriteria:
+  - TRACKING_PARAM_BLOCKLIST contains utm_source, utm_medium, utm_campaign,
+    utm_content, utm_term, gclid, fbclid, mc_cid, mc_eid, ref, _hsenc, _hsmi,
+    igshid, si as a readonly array
+  - normalizeUrl converts http scheme to https
+  - normalizeUrl lowercases the hostname while preserving path case
+  - normalizeUrl removes the fragment (#...) entirely
+  - normalizeUrl removes default port 80 (http) and 443 (https)
+  - normalizeUrl removes trailing slash when path length > 1 but preserves root
+    path "/"
+  - normalizeUrl removes tracking parameters from the blocklist and any
+    extraTrackingParams
+  - normalizeUrl sorts remaining query parameters alphabetically by key
+  - normalizeUrl does not append a trailing "?" when all params are stripped
+  - normalizeUrl preserves percent-encoded characters in the path without
+    double-decoding
+  - normalizeUrl throws Error for URLs that cannot be parsed by the WHATWG URL
+    constructor
+  - No string interpolation, eval, or dynamic code execution based on URL content
+schemas:
+  - DDConfig
+files:
+  - src/modules/deduplicate/url-normalizer.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD2
+category: service
+implementationSteps:
+  - Define TRACKING_PARAM_BLOCKLIST as a readonly string[] with all 14 tracking
+    params
+  - Implement normalizeUrl(rawUrl, extraTrackingParams?) using the global URL
+    constructor
+  - Set url.protocol to 'https:' if it was 'http:'
+  - Set url.hostname to url.hostname.toLowerCase()
+  - Clear url.hash to remove fragment
+  - "[object Object]"
+  - Remove trailing slash from pathname if pathname.length > 1 and pathname ends
+    with '/'
+  - Build a merged Set of blocklist params + extraTrackingParams
+    (case-insensitive)
+  - Collect non-tracking params from url.searchParams, sort by key, rebuild
+    search string
+  - Use url.toString() for final output but strip trailing '?' if present
+  - Let URL constructor throw for malformed input (caller catches)

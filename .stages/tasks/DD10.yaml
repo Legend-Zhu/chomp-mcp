@@ -1,0 +1,37 @@
+id: DD10
+title: Module index — public API exports
+description: >
+  Implement `src/modules/deduplicate/index.ts` as the public API barrel file.
+  Exports the `deduplicate`
+
+  function as the primary entry point, plus the `DeduplicatedItem` and
+  `DDConfig` types from shared types.
+
+  This is the sole import surface for PL module to invoke deduplication as one
+  atomic step.
+requirements:
+  - US-DD-011
+  - DC-DD-003
+acceptanceCriteria:
+  - Exports deduplicate function from deduplicator.ts
+  - Exports DeduplicatedItem type from shared/types/deduplicate.ts
+  - Exports DDConfig type from shared/types/deduplicate.ts
+  - No internal implementation details (FingerprintedItem, DedupStats) are
+    exported
+  - File compiles under TypeScript strict mode with zero errors
+schemas:
+  - DeduplicatedItem
+  - DDConfig
+files:
+  - src/modules/deduplicate/index.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD1
+  - DD9
+category: entry
+implementationSteps:
+  - Add `export { deduplicate } from './deduplicator.js'`
+  - Add `export type { DeduplicatedItem, DDConfig } from
+    '../../shared/types/deduplicate.js'`
+  - Ensure no other internal symbols are leaked

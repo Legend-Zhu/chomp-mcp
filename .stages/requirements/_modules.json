@@ -1,0 +1,59 @@
+{
+  "project_name": "chomp-mcp",
+  "architecture_type": "library",
+  "contract_types": [
+    "data-model",
+    "module-interface"
+  ],
+  "modules": [
+    {
+      "name": "search-retrieval",
+      "title": "Search Retrieval",
+      "description": "Calls SearXNG meta-search engine, parses JSON responses, and normalizes results into a unified candidate structure (title/url/snippet/score). Handles timeout, retry, and failover for SearXNG public or self-hosted instances.",
+      "id_prefix": "SR",
+      "depends_on": []
+    },
+    {
+      "name": "scrape-extract",
+      "title": "Scrape and Extract",
+      "description": "Converts URLs to clean text content using cheerio+readability as the primary path and Puppeteer as fallback for JS-rendered pages. Handles HTTP errors, encoding detection, content truncation, and non-HTML resources.",
+      "id_prefix": "SC",
+      "depends_on": []
+    },
+    {
+      "name": "deduplicate",
+      "title": "Deduplicate and Denoise",
+      "description": "Performs URL normalization (strip tracking params, unify scheme/case, remove fragments) and content-level deduplication using paragraph fingerprinting and similarity threshold comparison to merge near-duplicate articles.",
+      "id_prefix": "DD",
+      "depends_on": []
+    },
+    {
+      "name": "synthesize",
+      "title": "LLM Synthesize",
+      "description": "Interacts with an OpenAI-compatible LLM to produce structured digests (Answer/Key Points/Sources) from deduplicated content. Manages prompts, handles LLM failures, token limits via batch-and-merge, and graceful degradation.",
+      "id_prefix": "SY",
+      "depends_on": []
+    },
+    {
+      "name": "pipeline-orchestration",
+      "title": "Pipeline Orchestration",
+      "description": "Orchestrates the Search→Scrape→Deduplicate→Synthesize pipeline for web_search and the Scrape→Synthesize sub-flow for web_fetch. Manages concurrency limits, overall timeouts, and error isolation across individual URL failures.",
+      "id_prefix": "PL",
+      "depends_on": [
+        "search-retrieval",
+        "scrape-extract",
+        "deduplicate",
+        "synthesize"
+      ]
+    },
+    {
+      "name": "mcp-server",
+      "title": "MCP Server Entry",
+      "description": "Manages MCP server lifecycle over stdio transport: JSON-RPC message handling, tool definition registration (web_search/web_fetch inputSchemas), call dispatch to the orchestration layer, and MCP-standard response formatting.",
+      "id_prefix": "MC",
+      "depends_on": [
+        "pipeline-orchestration"
+      ]
+    }
+  ]
+}

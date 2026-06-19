@@ -1,0 +1,71 @@
+id: DD2
+title: Module types, constants, and environment-based config loader
+description: >
+  Define module-internal types and constants in
+  `src/modules/deduplicate/types.ts`. This includes
+
+  the DedupStats accumulator interface, the FingerprintedItem working structure
+  (Set<number>
+
+  fingerprints), and the three core constants: MAX_PAIRWISE_ITEMS (50),
+  MIN_PARAGRAPH_CHARS_DEFAULT (20),
+
+  and SIMILARITY_THRESHOLD_DEFAULT (0.85). Also implement a `loadConfig(config?:
+  DDConfig): DDConfig`
+
+  function that reads DEDUP_SIMILARITY_THRESHOLD, MIN_PARAGRAPH_CHARS, and
+  DEDUP_EXTRA_TRACKING_PARAMS
+
+  from environment variables, validates ranges, falls back to defaults on
+  invalid input with stderr
+
+  warnings, and merges with any caller-provided config overrides.
+requirements:
+  - US-DD-006
+  - US-DD-010
+  - DC-DD-005
+  - NFR-DD-003
+acceptanceCriteria:
+  - DedupStats interface has all 8 fields (inputCount, emptyContentRemoved,
+    errorItemsRemoved, exactUrlDuplicatesRemoved, exactContentDuplicatesRemoved,
+    nearDuplicatesRemoved, outputCount, elapsedMs) typed as number
+  - FingerprintedItem interface has item (ContentItem), normalizedUrl (string),
+    fingerprints (Set<number>), originalIndex (number)
+  - MAX_PAIRWISE_ITEMS constant equals 50, MIN_PARAGRAPH_CHARS_DEFAULT equals
+    20, SIMILARITY_THRESHOLD_DEFAULT equals 0.85
+  - loadConfig reads DEDUP_SIMILARITY_THRESHOLD env var and validates range
+    [0.0, 1.0], falling back to 0.85 with stderr warning if out of range or not
+    set
+  - loadConfig reads MIN_PARAGRAPH_CHARS env var as positive integer, defaulting
+    to 20
+  - loadConfig reads DEDUP_EXTRA_TRACKING_PARAMS as comma-separated list,
+    filtering out empty entries
+  - loadConfig merges caller-provided config field overrides on top of
+    env-derived defaults
+  - All values are explicit and deterministic (no Date.now or random in config
+    resolution)
+schemas:
+  - DedupStats
+  - FingerprintedItem
+  - DDConfig
+files:
+  - src/modules/deduplicate/types.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD1
+category: model
+implementationSteps:
+  - Import DDConfig from shared types and the log utility from
+    shared/utils/logger.ts
+  - Define DedupStats interface with all 8 numeric fields and JSDoc
+  - Define FingerprintedItem interface with item, normalizedUrl, fingerprints
+    (Set<number>), originalIndex
+  - Define MAX_PAIRWISE_ITEMS, MIN_PARAGRAPH_CHARS_DEFAULT,
+    SIMILARITY_THRESHOLD_DEFAULT as const
+  - Implement loadConfig(config?) that reads process.env, parses with
+    validation, logs warnings via shared logger, and returns a resolved DDConfig
+  - Validate similarityThreshold range [0.0, 1.0] with fallback to
+    SIMILARITY_THRESHOLD_DEFAULT
+  - Parse DEDUP_EXTRA_TRACKING_PARAMS splitting on commas and filtering empty
+    strings

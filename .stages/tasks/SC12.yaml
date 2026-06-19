@@ -1,0 +1,55 @@
+id: SC12
+title: Unit tests for content extractor and HTTP fetcher
+description: >
+  Write unit test files for content-extractor.test.ts (jsdom + Readability
+  extraction with
+
+  various HTML fixtures, threshold checking, error handling) and
+  http-fetcher.test.ts
+
+  (redirect following, retry logic, timeout handling, HTTP status
+  classification, compressed
+
+  response decompression). Tests mock fetch and network calls.
+requirements:
+  - US-SC-001
+  - US-SC-002
+  - US-SC-003
+  - US-SC-005
+  - US-SC-006
+  - US-SC-010
+acceptanceCriteria:
+  - "content-extractor.test.ts covers: well-structured article HTML (>= 200
+    chars -> 'readability'), sparse HTML (< 200 chars -> 'readability-failed'),
+    Readability throw (caught -> 'readability-failed'), title extraction"
+  - "http-fetcher.test.ts covers: successful 2xx fetch, redirect chain (up to
+    5), redirect exceeding max (error), transient error retry (mocked), 429
+    Retry-After handling, 4xx no-retry, 5xx retry once, timeout abort"
+  - HTTP fetcher tests mock global fetch to return controlled responses
+  - "Tests verify FetchResult fields: success, statusCode, finalUrl,
+    redirectCount, error, retryAfterMs"
+  - No real network calls are made in any test
+schemas:
+  - ExtractionOutput
+  - FetchResult
+files:
+  - tests/modules/scrape-extract/content-extractor.test.ts
+  - tests/modules/scrape-extract/http-fetcher.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC6
+  - SC7
+category: test
+implementationSteps:
+  - "content-extractor: create HTML fixture strings (full article, minimal page,
+    malformed); assert ExtractionOutput fields for each"
+  - "http-fetcher: mock global.fetch with vi.fn or custom stub; simulate various
+    response scenarios"
+  - Test redirect scenarios by returning mocked 302 responses with Location
+    headers then a 200
+  - Test retry by returning transient errors then success on second call
+  - Test timeout by returning a response that never resolves and asserting the
+    abort error
+  - Verify compressed response handling by mocking appropriate Content-Encoding
+    headers

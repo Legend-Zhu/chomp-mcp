@@ -1,0 +1,118 @@
+id: MC3
+title: Tool Call Dispatch and Response Formatting
+description: >
+  Create tool-handlers.ts implementing the tool-call dispatch layer. Provides
+  dispatchToolCall
+
+  (routes by name, catches all exceptions), handleWebSearch and handleWebFetch
+  (validate params,
+
+  invoke injected PL handlers, format responses), formatSuccessResponse (wraps
+  digest in MCP
+
+  CallToolResult with 25000-char truncation), and formatErrorResponse (wraps
+  error message with
+
+  isError:true). Includes timeout detection via AppError.category. All logging
+  goes to stderr only.
+requirements:
+  - US-MC-006
+  - US-MC-007
+  - US-MC-008
+  - US-MC-009
+  - US-MC-011
+  - BG-MC-003
+  - NFR-MC-002
+  - NFR-MC-004
+  - NFR-MC-005
+  - DC-MC-003
+  - DC-MC-007
+acceptanceCriteria:
+  - dispatchToolCall('web_search', {query:'x'}, handlers) invokes
+    handlers.runWebSearch and returns CallToolResult with isError:false
+  - dispatchToolCall('web_fetch', {url:'https://x.com'}, handlers) invokes
+    handlers.runWebFetch and returns CallToolResult with isError:false
+  - "dispatchToolCall('unknown_tool', {}, handlers) returns isError:true with
+    content text 'Unknown tool: unknown_tool. Available tools: web_search,
+    web_fetch.' and does NOT call any PL handler"
+  - dispatchToolCall('web_search', {}, handlers) returns isError:true with
+    validation message about missing query
+  - formatSuccessResponse(digest) returns {content:[{type:'text',text:digest}],
+    isError:false}
+  - formatSuccessResponse truncates digest strings exceeding 25000 chars and
+    appends '\n\n[Response truncated due to length]'
+  - formatErrorResponse(msg) returns {content:[{type:'text',text:msg}],
+    isError:true}
+  - When PL handler throws an AppError with category 'timeout', dispatchToolCall
+    returns isError:true with text 'Research timed out. Please try reducing
+    max_results or try again later.'
+  - "When PL handler throws a generic Error, dispatchToolCall returns
+    isError:true with text 'Internal error: {message}. See server logs for
+    details.' and logs stack trace to stderr"
+  - When PL handler throws, stack traces appear in stderr log but NEVER in the
+    CallToolResult content
+  - dispatchToolCall never throws — all exceptions are caught and converted to
+    error CallToolResult
+  - "dispatchToolCall logs '[mcp-server] dispatching web_search: {query}' or
+    '[mcp-server] dispatching web_fetch: {url}' to stderr"
+  - "dispatchToolCall logs '[mcp-server] unknown tool requested: {name}' to
+    stderr for unknown tools"
+  - No console.log or console.error calls — all logging uses log.* from
+    shared/utils/logger.ts
+  - OrchestrationHandlers interface is defined and exported with runWebSearch
+    and runWebFetch function signatures
+  - File compiles under tsc strict mode with zero errors
+schemas:
+  - CallToolResult
+  - TextContent
+  - OrchestrationHandlers
+files:
+  - src/modules/mcp-server/tool-handlers.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - MC1
+  - MC2
+category: service
+implementationSteps:
+  - Import { validateWebSearchParams, validateWebFetchParams, WebSearchParams,
+    WebFetchParams, ValidationResult } from './validation.js'
+  - Import { log } from '../../shared/utils/logger.js'
+  - Import { AppError } from '../../shared/utils/errors.js'
+  - Define MAX_RESPONSE_CHARS = 25000 constant
+  - "Define TextContent type: { type: 'text'; text: string }"
+  - "Define CallToolResult type: { content: TextContent[]; isError: boolean }"
+  - "Define OrchestrationHandlers interface: { runWebSearch: (params:
+    WebSearchParams) => Promise<string>; runWebFetch: (params: WebFetchParams)
+    => Promise<string> }"
+  - "Implement isTimeoutError(error: unknown): boolean — returns true if error
+    instanceof AppError and error.category === 'timeout'"
+  - "Implement getErrorMessage(error: unknown): string — extracts message from
+    Error or converts unknown to string"
+  - "Implement formatSuccessResponse(digest: string): CallToolResult — if
+    digest.length > MAX_RESPONSE_CHARS, truncate to 25000 and append
+    '\\n\\n[Response truncated due to length]'; wrap in
+    {content:[{type:'text',text}], isError:false}"
+  - "Implement formatErrorResponse(message: string): CallToolResult — returns
+    {content:[{type:'text',text:message}], isError:true}"
+  - "Implement async handleWebSearch(params: unknown, handlers:
+    OrchestrationHandlers): Promise<CallToolResult> — validate via
+    validateWebSearchParams; on failure return
+    formatErrorResponse(result.message); log dispatch line; call
+    handlers.runWebSearch(validated); return formatSuccessResponse(digest);
+    catch timeout errors and return formatErrorResponse('Research timed out.
+    Please try reducing max_results or try again later.'); catch other errors,
+    log full stack to stderr, return formatErrorResponse(`Internal error:
+    ${message}. See server logs for details.`)"
+  - "Implement async handleWebFetch(params: unknown, handlers:
+    OrchestrationHandlers): Promise<CallToolResult> — same pattern as
+    handleWebSearch but for web_fetch with url in log line"
+  - "Implement async dispatchToolCall(name: string, params: unknown, handlers:
+    OrchestrationHandlers): Promise<CallToolResult> — wrap entire body in
+    try/catch; switch on name: 'web_search' -> handleWebSearch, 'web_fetch' ->
+    handleWebFetch, default -> log unknown tool, return
+    formatErrorResponse(`Unknown tool: ${name}. Available tools: web_search,
+    web_fetch.`); outer catch returns formatErrorResponse with internal error
+    message"
+  - Export dispatchToolCall, handleWebSearch, handleWebFetch,
+    formatSuccessResponse, formatErrorResponse, OrchestrationHandlers

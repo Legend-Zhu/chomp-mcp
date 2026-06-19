@@ -1,0 +1,69 @@
+id: SC1
+title: Shared and internal type definitions
+description: >
+  Define the ScrapeResult, ExtractionMethod public type contract in
+  src/shared/types/scrape.ts
+
+  (consumed by downstream modules DD, SY, PL) and all internal SC module types
+  in
+
+  src/modules/scrape-extract/types.ts (ScrapeOptions, ScrapeConfig, FetchResult,
+
+  ExtractionOutput, RenderResult, ContentTypeResult, ValidationResult,
+  TruncationResult).
+
+  These types form the stable contract boundary and configuration model for the
+  entire module.
+requirements:
+  - US-SC-012
+  - DC-SC-001
+  - DC-SC-002
+  - DC-SC-005
+  - DC-SC-006
+  - NFR-SC-005
+acceptanceCriteria:
+  - ScrapeResult is exported from src/shared/types/scrape.ts as a discriminated
+    union with success true and false variants matching the contract fields
+    (url, finalUrl, title, textContent, extractionMethod, truncated,
+    contentLength, elapsedMs, error)
+  - "ExtractionMethod is exported as a string literal union: 'readability' |
+    'readability-failed' | 'puppeteer' | 'json' | 'xml' | 'raw-text'"
+  - ScrapeConfig contains timeoutMs (default 15000), maxContentChars (default
+    8000), maxRedirects (5), minContentChars (200), maxTotalTimeoutMs (timeoutMs
+    x 2)
+  - ScrapeOptions contains optional timeoutMs and maxContentChars override fields
+  - All internal types (FetchResult, ExtractionOutput, RenderResult,
+    ContentTypeResult, ValidationResult, TruncationResult) are exported from
+    types.ts with every field explicitly typed
+  - Code compiles under tsc strict mode with zero errors and no any types
+schemas:
+  - ScrapeResult
+  - ScrapeOptions
+  - ScrapeConfig
+  - FetchResult
+  - ExtractionOutput
+  - RenderResult
+  - ContentTypeResult
+  - ValidationResult
+  - TruncationResult
+files:
+  - src/shared/types/scrape.ts
+  - src/modules/scrape-extract/types.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - "Create src/shared/types/scrape.ts with ExtractionMethod literal union and
+    ScrapeResult interface (discriminated union on success: boolean)"
+  - Define ScrapeResult with all 10 fields; use string | null for nullable
+    fields, ExtractionMethod | null for extractionMethod
+  - Create src/modules/scrape-extract/types.ts importing ExtractionMethod from
+    shared types
+  - Define ScrapeOptions interface with optional timeoutMs and maxContentChars
+  - Define ScrapeConfig interface with all 5 config fields (timeoutMs,
+    maxContentChars, maxRedirects, minContentChars, maxTotalTimeoutMs)
+  - "Define internal interfaces: FetchResult (with bodyBytes as Uint8Array |
+    null, retryAfterMs), ExtractionOutput, RenderResult, ContentTypeResult (with
+    kind union), ValidationResult, TruncationResult"
+  - Export all types from types.ts using ESM export syntax

@@ -1,0 +1,54 @@
+id: PL2
+title: Implement concurrency limiter (semaphore)
+description: >
+  Create the concurrency limiter that enforces MAX_CONCURRENCY during parallel
+  scraping.
+
+  Uses a semaphore (acquire/release) pattern to guarantee that the number of
+  simultaneously
+
+  in-flight scrape operations never exceeds the configured limit. Supports
+  abort-signal
+
+  awareness so queued items are not dispatched when the pipeline has been
+  aborted.
+requirements:
+  - US-PL-003
+  - BG-PL-003
+  - NFR-PL-003
+acceptanceCriteria:
+  - The limiter guarantees at most maxConcurrency operations are in-flight at
+    any given time
+  - acquire() returns a Promise that resolves when a slot is available, blocking
+    excess callers
+  - release() frees a slot and allows the next queued acquire() to resolve
+    immediately
+  - When an AbortSignal is provided and becomes aborted, queued acquire() calls
+    reject or short-circuit rather than hanging
+  - The limiter never exceeds maxConcurrency even under burst dispatch of many
+    items
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas: []
+files:
+  - src/modules/pipeline-orchestration/concurrency-limiter.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - "Define a ConcurrencyLimiter class with constructor accepting
+    (maxConcurrency: number)"
+  - Maintain an internal counter of active operations and a FIFO queue of
+    pending resolve/reject callbacks
+  - "Implement async acquire(signal?: AbortSignal): Promise<void> that resolves
+    immediately if active < maxConcurrency, otherwise enqueues the resolver; if
+    signal is already aborted, reject immediately"
+  - If a signal is provided, attach an abort listener that rejects the queued
+    promise when the signal fires
+  - "Implement release(): void that decrements active count and, if queue is
+    non-empty, dequeues and resolves the next waiter"
+  - Add a helper method runConcurrent<T>(items, maxConcurrency, workerFn,
+    signal) that dispatches items through acquire/release automatically and
+    returns results array — used by the web-search pipeline for parallel
+    scraping
+  - Export the ConcurrencyLimiter class and createConcurrencyLimiter factory

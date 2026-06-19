@@ -1,0 +1,78 @@
+id: MC1
+title: Parameter Validation with Zod Schemas
+description: >
+  Create validation.ts implementing Zod-based parameter validation for MCP tool
+  calls.
+
+  Defines WebSearchParams and WebFetchParams TypeScript interfaces,
+  ValidationResult<T>
+
+  discriminated union type, and the validateWebSearchParams /
+  validateWebFetchParams
+
+  functions. These functions validate raw MCP arguments (snake_case input) and
+  produce
+
+  typed camelCase output objects with human-readable error messages per
+  US-MC-010.
+requirements:
+  - US-MC-010
+  - DC-MC-003
+  - DC-MC-004
+acceptanceCriteria:
+  - validateWebSearchParams({query:'hello'}) returns {success:true,
+    data:{query:'hello', maxResults:5}}
+  - "validateWebSearchParams with missing or empty query returns {success:false,
+    message:'Missing required field: query'}"
+  - validateWebSearchParams with max_results as non-integer (e.g. 3.5) returns
+    {success:false, message:'max_results must be a positive integer'}
+  - validateWebSearchParams with max_results as negative returns {success:false,
+    message:'max_results must be a positive integer'}
+  - validateWebSearchParams applies default maxResults=5 when max_results omitted
+  - validateWebSearchParams maps snake_case max_results to camelCase maxResults
+    in output data
+  - validateWebSearchParams rejects unknown additional properties due to
+    .strict() schema
+  - validateWebFetchParams with valid url returns {success:true,
+    data:{url:'...'}}
+  - "validateWebFetchParams with invalid url returns {success:false,
+    message:'Invalid URL format: {provided value}'}"
+  - validateWebFetchParams rejects unknown additional properties due to
+    .strict() schema
+  - All exports use ESM import/export syntax (no require)
+  - File compiles under tsc strict mode with zero errors
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+  - ValidationResultSuccess
+  - ValidationResultFailure
+files:
+  - src/modules/mcp-server/validation.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - Import { z } from 'zod'
+  - "Define WebSearchParams interface: query (string), maxResults (number,
+    optional), focus (string, optional)"
+  - "Define WebFetchParams interface: url (string), focus (string, optional)"
+  - "Define generic ValidationResult<T> type as discriminated union: { success:
+    true; data: T } | { success: false; message: string }"
+  - "Create internal webSearchSchema = z.object({ query: z.string().min(1,
+    'Missing required field: query'), max_results: z.number().int('max_results
+    must be a positive integer').positive('max_results must be a positive
+    integer').default(5), focus: z.string().optional() }).strict()"
+  - "Create internal webFetchSchema = z.object({ url: z.string().url(), focus:
+    z.string().optional() }).strict()"
+  - "Implement validateWebSearchParams(params: unknown):
+    ValidationResult<WebSearchParams> using safeParse; on success map
+    max_results to maxResults; on failure inspect ZodError issues and return the
+    custom message (the .int and .positive custom messages ensure 'max_results
+    must be a positive integer' for both cases)"
+  - "Implement validateWebFetchParams(params: unknown):
+    ValidationResult<WebFetchParams> using safeParse; on URL validation failure
+    construct message 'Invalid URL format: {provided value}' by reading the
+    original params.url; on other failures return the ZodError message"
+  - Export validateWebSearchParams, validateWebFetchParams functions and
+    WebSearchParams, WebFetchParams, ValidationResult types

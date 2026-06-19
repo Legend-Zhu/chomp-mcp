@@ -1,0 +1,78 @@
+id: SY7
+title: Batch-and-merge token-overflow handler
+description: >
+  Implement batchAndMerge that splits content items into token-safe batches,
+  synthesizes each batch
+
+  via LLM call, collects intermediate digests, and merges them via a final merge
+  LLM call.
+
+  Recursively re-batches intermediate digests if the merge prompt itself exceeds
+  token limits.
+
+  Uses semaphore-based concurrency limiting for parallel batch processing.
+requirements:
+  - US-SY-005
+  - NFR-SY-001
+  - NFR-SY-005
+acceptanceCriteria:
+  - batchAndMerge splits content items into batches whose combined estimated
+    tokens fit within safe threshold (maxContextTokens * safeThresholdRatio)
+  - "Logs '[SY] batching: {N} batches for {M} content items' to stderr"
+  - Each batch is synthesized via callLLMWithRetry and parsed via
+    parseDigestResponse
+  - "Batch processing respects maxBatchConcurrency using semaphore from shared
+    utils (default: 2 concurrent)"
+  - After collecting all intermediate digests, a merge LLM call
+    (buildMergePrompt) combines them into a single DigestResult
+  - If the merge prompt itself exceeds token threshold, intermediate digests are
+    recursively re-batched and re-merged until result fits
+  - If any batch synthesis fails, routes to degradationFallback
+  - "Logs estimated tokens for the merge prompt: '[SY] estimated tokens: {N}
+    (threshold: {M})'"
+  - No stdout output
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - LLMCallOptions
+  - DigestResult
+files:
+  - src/modules/synthesize/batch-merger.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY2
+  - SY3
+  - SY4
+  - SY5
+  - SY6
+category: service
+implementationSteps:
+  - Import callLLMWithRetry from llm-client, buildSystemPrompt and
+    buildMergePrompt from prompt-builder, estimateTokens from token-estimator,
+    parseDigestResponse and reconcileSources from response-parser,
+    degradationFallback from degradation-handler
+  - Import Semaphore from ../../shared/utils/semaphore.ts
+  - Import SynthesizeConfig, ContentItem, DigestResult, OpenAIClient from types
+  - "Implement splitIntoBatches(contents, config): greedy pack — iterate
+    contents, estimate tokens per item using estimateTokens on built prompt
+    segment, add to current batch until adding would exceed threshold, then
+    start new batch"
+  - "Implement batchAndMerge(query, contents, focus, client, config):"
+  - "  Step 1: Compute batches via splitIntoBatches, log '[SY] batching: {N}
+    batches for {M} content items'"
+  - "  Step 2: Create semaphore with config.maxBatchConcurrency"
+  - "  Step 3: For each batch, acquire semaphore, build prompts
+    (buildSystemPrompt + buildUserPrompt), call callLLMWithRetry, parse response
+    via parseDigestResponse, release semaphore; collect results into
+    intermediateDigests[]"
+  - "  Step 4: Build merge prompt via buildMergePrompt(query,
+    intermediateDigests, focus)"
+  - "  Step 5: Estimate merge prompt tokens; if exceeds threshold, recursively
+    call batchAndMerge with intermediate digests converted to ContentItem-like
+    objects (or re-batch the digests)"
+  - "  Step 6: If merge fits, callLLMWithRetry with merge prompt, parse
+    response, reconcileSources with all original sources"
+  - "  Step 7: On any error during batch or merge, catch and return
+    degradationFallback"
+  - Export batchAndMerge

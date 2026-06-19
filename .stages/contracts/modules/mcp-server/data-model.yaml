@@ -1,0 +1,210 @@
+schemas:
+  WebSearchParams:
+    fields:
+      query:
+        type: string
+        required: true
+        description: Non-empty search query string
+      maxResults:
+        type: integer
+        required: false
+        minimum: 1
+        description: "Maximum number of results to request from the search stage
+          (default: 5)"
+      focus:
+        type: string
+        required: false
+        description: Optional focus directive passed to the synthesis stage for emphasis
+  WebFetchParams:
+    fields:
+      url:
+        type: string
+        required: true
+        description: Target URL to fetch and synthesize
+      focus:
+        type: string
+        required: false
+        description: Optional focus directive passed to the synthesis stage for emphasis
+  OrchestrationHandlers:
+    fields:
+      runWebSearch:
+        type: function
+        signature: "(params: WebSearchParams) => Promise<string>"
+        required: true
+        description: Executes the full web_search pipeline. Returns a formatted digest
+          string. May throw on fatal error.
+      runWebFetch:
+        type: function
+        signature: "(params: WebFetchParams) => Promise<string>"
+        required: true
+        description: Executes the web_fetch sub-flow. Returns a formatted digest string.
+          May throw on fatal error.
+  CreateServerOptions:
+    fields:
+      handlers:
+        type: OrchestrationHandlers
+        required: true
+        description: Injected PL orchestration functions.
+      serverName:
+        type: string
+        required: false
+        default: chomp-mcp
+        description: "Server name for MCP handshake. Default: 'chomp-mcp'."
+      serverVersion:
+        type: string
+        required: false
+        default: 1.0.0
+        description: "Server version for MCP handshake. Default: '1.0.0'."
+  ValidationResultSuccess:
+    fields:
+      success:
+        type: boolean
+        required: true
+        description: Discriminator field; always true for success variant.
+      data:
+        type: object
+        required: true
+        description: "Typed, validated params object (generic T: WebSearchParams or
+          WebFetchParams)."
+    description: Success variant of ValidationResult<T> discriminated union.
+  ValidationResultFailure:
+    fields:
+      success:
+        type: boolean
+        required: true
+        description: Discriminator field; always false for failure variant.
+      message:
+        type: string
+        required: true
+        description: Human-readable error string for the MCP response.
+    description: Failure variant of ValidationResult<T> discriminated union.
+  TextContent:
+    fields:
+      type:
+        type: string
+        required: true
+        description: Content type identifier; always 'text'.
+      text:
+        type: string
+        required: true
+        maxLength: 25000
+        description: The digest or error message text. Truncated to 25,000 chars with
+          '[Response truncated due to length]' suffix if exceeded.
+    description: Single text content item in an MCP CallToolResult content array.
+  CallToolResult:
+    fields:
+      content:
+        type: array
+        required: true
+        items: TextContent
+        description: Array of content objects; contains exactly one TextContent item for
+          all MC module responses.
+      isError:
+        type: boolean
+        required: true
+        description: false for successful digest responses; true for all error responses
+          (unknown tool, validation failure, PL failure).
+    description: MCP-standard tool call result returned by tools/call handler.
+  WebSearchInputSchema:
+    fields:
+      query:
+        type: string
+        required: true
+        description: The search query to research.
+      max_results:
+        type: integer
+        required: false
+        default: 5
+        description: "Maximum number of search results to process. Default: 5."
+      focus:
+        type: string
+        required: false
+        description: Optional aspect to emphasize in the synthesized digest.
+    description: "JSON Schema draft 2020-12 input contract for the web_search tool.
+      Additional properties: false."
+  WebFetchInputSchema:
+    fields:
+      url:
+        type: string
+        required: true
+        format: uri
+        description: The URL to fetch, extract, and synthesize.
+      focus:
+        type: string
+        required: false
+        description: Optional aspect to emphasize in the synthesized digest.
+    description: "JSON Schema draft 2020-12 input contract for the web_fetch tool.
+      Additional properties: false."
+  ToolDefinition:
+    fields:
+      name:
+        type: string
+        required: true
+        description: Tool name identifier; either 'web_search' or 'web_fetch'.
+      description:
+        type: string
+        required: true
+        description: Human-readable description of the tool's purpose.
+      inputSchema:
+        type: object
+        required: true
+        description: JSON Schema draft 2020-12 object defining tool parameters, with
+          type 'object' and additionalProperties false.
+    description: MCP Tool definition object conforming to SDK Tool type.
+  ServerInfo:
+    fields:
+      name:
+        type: string
+        required: true
+        default: chomp-mcp
+        description: Server name reported during MCP initialize handshake.
+      version:
+        type: string
+        required: true
+        default: 1.0.0
+        description: Server version reported during MCP initialize handshake.
+    description: Server identity object for the MCP initialize response.
+constants:
+  MAX_RESPONSE_CHARS:
+    type: integer
+    value: 25000
+    description: Maximum character length for a digest string in a CallToolResult
+      before truncation. Truncation appends '\n\n[Response truncated due to
+      length]'.
+  SHUTDOWN_GRACE_PERIOD_MS:
+    type: integer
+    value: 5000
+    description: Maximum time in milliseconds to wait for in-flight tool calls
+      during graceful shutdown before forcing exit.
+  SERVER_NAME:
+    type: string
+    value: chomp-mcp
+    description: Default server name for MCP handshake.
+  SERVER_VERSION:
+    type: string
+    value: 1.0.0
+    description: Default server version for MCP handshake.
+enums:
+  ToolName:
+    values:
+      - web_search
+      - web_fetch
+    description: String literal union for registered tool names.
+  ContentType:
+    values:
+      - text
+    description: MCP content type identifier; only 'text' is used by this module.
+  ErrorCategory:
+    values:
+      - unknown_tool
+      - validation
+      - timeout
+      - internal
+    description: Internal error categorization for tool dispatch error handling.
+  JsonRpcErrorCode:
+    values:
+      - -32600
+      - -32601
+      - -32603
+    description: "JSON-RPC 2.0 error codes handled by the MCP SDK: -32600 (Invalid
+      Request), -32601 (Method not found), -32603 (Internal error)."

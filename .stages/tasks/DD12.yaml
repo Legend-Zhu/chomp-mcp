@@ -1,0 +1,31 @@
+id: DD12
+title: Tests — paragraph segmenter
+description: >
+  Implement `tests/modules/deduplicate/paragraph-segmenter.test.ts` covering
+  paragraph splitting at
+
+  newline and HTML-tag boundaries, minChars filtering, and empty/whitespace
+  input handling.
+requirements:
+  - US-DD-004
+acceptanceCriteria:
+  - Tests splitting at 2+ consecutive newlines
+  - Tests splitting at <br>, <br/>, <br />, </p>, </div> tags
+  - Tests segments shorter than minChars are discarded
+  - Tests empty/whitespace-only text returns empty array
+  - Tests whitespace collapsing and trimming in output segments
+  - Tests mixed newline and HTML tag boundaries
+schemas: []
+files:
+  - tests/modules/deduplicate/paragraph-segmenter.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - DD4
+category: test
+implementationSteps:
+  - Import segmentParagraphs
+  - Write test with multi-paragraph text separated by newlines
+  - Write test with HTML break/paragraph tags
+  - Write test with short segments below minChars threshold
+  - Write test with empty and whitespace-only input

@@ -1,0 +1,143 @@
+interfaces:
+  Synthesizer:
+    exports:
+      - name: synthesize
+        params:
+          - query: string
+          - contents: ContentItem[]
+          - focus: string (optional)
+        returns: Promise<DigestResult>
+        description: "Synthesize a structured digest from multiple deduplicated content items via LLM. Routes to single-call or batch-and-merge based on token estimate. Never rejects; all errors route to degradationFallback."
+      - name: synthesizeSingle
+        params:
+          - url: string
+          - title: string
+          - content: string
+          - focus: string (optional)
+        returns: Promise<DigestResult>
+        description: "Synthesize a digest for a single known URL. Returns degradation result if content < 200 chars. Sources array contains exactly one entry."
+    imports:
+      - from: LLMClient
+        functions: [createLLMClient, verifyLLMConnectivity, callLLMWithRetry]
+      - from: PromptBuilder
+        functions: [buildSystemPrompt, buildUserPrompt, buildSingleSourcePrompt]
+      - from: TokenEstimator
+        functions: [estimateTokens]
+      - from: BatchMerger
+        functions: [batchAndMerge]
+      - from: ResponseParser
+        functions: [parseDigestResponse, reconcileSources]
+      - from: DegradationHandler
+        functions: [degradationFallback]
+
+  LLMClient:
+    exports:
+      - name: createLLMClient
+        params:
+          - config: SynthesizeConfig
+        returns: OpenAIClient
+        description: "Instantiate an OpenAI-compatible LLM client from SynthesizeConfig. Validates apiKey is non-empty; throws descriptive error if missing."
+      - name: verifyLLMConnectivity
+        params:
+          - client: OpenAIClient
+        returns: Promise<boolean>
+        description: "Send a minimal test prompt to the LLM and return boolean indicating reachability."
+      - name: callLLMWithRetry
+        params:
+          - client: OpenAIClient
+          - systemPrompt: string
+          - userPrompt: string
+          - options: LLMCallOptions (optional)
+        returns: Promise<LLMResponse>
+        description: "Send a chat completion request with exponential backoff retry on 429/5xx and timeout errors. Does NOT retry on 401/403. Enforces AbortController timeout."
+    imports: []
+
+  PromptBuilder:
+    exports:
+      - name: buildSystemPrompt
+        params: []
+        returns: string
+        description: "Construct system prompt instructing LLM to produce Answer, Key Points, and Sources sections. Includes anti-hallucination directive for URLs."
+      - name: buildUserPrompt
+        params:
+          - query: string
+          - contents: ContentItem[]
+          - focus: string (optional)
+        returns: string
+        description: "Construct user prompt interleaving each content block with its source URL and title. Appends focus directive if provided."
+      - name: buildSingleSourcePrompt
+        params:
+          - query: string
+          - url: string
+          - title: string
+          - content: string
+          - focus: string (optional)
+        returns: string
+        description: "Construct user prompt for single-source synthesis, instructing LLM to summarize one page. Prioritizes focus aspect if provided."
+      - name: buildMergePrompt
+        params:
+          - query: string
+          - digests: DigestResult[]
+          - focus: string (optional)
+        returns: "{ systemPrompt: string, userPrompt: string }"
+        description: "Construct system and user prompts for the merge LLM call that combines intermediate batch digests into a single unified DigestResult."
+    imports: []
+
+  TokenEstimator:
+    exports:
+      - name: estimateTokens
+        params:
+          - text: string
+        returns: number
+        description: "Estimate token count using heuristic: ~1 token per 4 chars for English, ~1 token per 1.5 chars for CJK content."
+    imports: []
+
+  BatchMerger:
+    exports:
+      - name: batchAndMerge
+        params:
+          - query: string
+          - contents: ContentItem[]
+          - focus: string | undefined
+          - client: OpenAIClient
+          - config: SynthesizeConfig
+        returns: Promise<DigestResult>
+        description: "Split content items into token-safe batches, synthesize each via LLM, collect intermediate digests, then merge via final merge LLM call. Recursively re-batches if merge prompt itself overflows."
+    imports:
+      - from: LLMClient
+        functions: [callLLMWithRetry]
+      - from: PromptBuilder
+        functions: [buildSystemPrompt, buildMergePrompt]
+      - from: TokenEstimator
+        functions: [estimateTokens]
+      - from: ResponseParser
+        functions: [parseDigestResponse, reconcileSources]
+      - from: DegradationHandler
+        functions: [degradationFallback]
+
+  ResponseParser:
+    exports:
+      - name: parseDigestResponse
+        params:
+          - rawResponse: string
+          - knownSources: SourceRef[]
+        returns: DigestResult
+        description: "Parse LLM free-text response into structured DigestResult. Multi-strategy: first attempts markdown headers (## Answer/Key Points/Sources), falls back to heuristic keyword proximity. Extracts URLs via regex and pairs with nearest title."
+      - name: reconcileSources
+        params:
+          - parsed: DigestResult
+          - knownSources: SourceRef[]
+        returns: DigestResult
+        description: "Append any input source URLs missing from the LLM's Sources section to the parsed DigestResult, ensuring all referenced URLs are represented."
+    imports: []
+
+  DegradationHandler:
+    exports:
+      - name: degradationFallback
+        params:
+          - query: string
+          - contents: ContentItem[]
+          - reason: string
+        returns: DigestResult
+        description: "Construct a structurally valid DigestResult from raw input content without calling LLM. Answer is truncated concatenation (max 2000 chars) prefixed with availability note. KeyPoints are first sentences of each item (max 10). Sources include all input URLs and titles."
+    imports: []

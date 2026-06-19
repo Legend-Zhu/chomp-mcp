@@ -1,0 +1,70 @@
+id: SRS3
+title: Implement SearXNG instance pool with failover, SEARXNG_URL validation,
+  and mode selection
+description: >
+  Create src/modules/search-retrieval/instance-pool.ts implementing the
+  InstancePool
+
+  management layer. Reads SEARXNG_URL from appConfig to determine self-hosted vs
+  public
+
+  mode, maintains an ordered list of public instances with cursor-based
+  rotation,
+
+  handles failover advancement and successful-instance promotion. All config is
+  via
+
+  environment variables only; no persistent state is written.
+requirements:
+  - US-SR-006
+  - US-SR-007
+  - BG-SR-003
+  - NFR-SR-006
+  - DC-SR-001
+  - DC-SR-005
+  - DC-SR-007
+acceptanceCriteria:
+  - createInstancePool reads SEARXNG_URL from appConfig; if valid http/https
+    URL, returns self-hosted mode with single instance and no failover
+  - When SEARXNG_URL is invalid (missing protocol, malformed),
+    createInstancePool throws ConfigurationError with message "SEARXNG_URL must
+    be a valid HTTP(S) URL"
+  - When SEARXNG_URL absent, returns public mode with built-in ordered list of
+    at least 3 public SearXNG instance URLs
+  - 'Logs "SearXNG mode: public instances with failover" to stderr in public
+    mode'
+  - 'Logs "SearXNG endpoint configured: {url}, mode: {self-hosted|public}" to
+    stderr on successful init'
+  - getCurrentInstance returns the URL at the current cursor index
+  - advanceToNextInstance increments cursor, resets retry counter, returns
+    boolean (true if more instances, false if exhausted)
+  - promoteInstance moves a successful failover URL to front of instances array
+    and logs new ordering at debug level to stderr
+  - resetCursor sets cursor to 0 at the start of each search call
+  - hasMoreInstances returns true if cursor+1 is less than instances.length
+  - Instance list reordering is in-memory volatile state only; no disk or
+    database persistence
+  - No paid third-party search APIs are referenced; only SearXNG instances are
+    used
+  - All operational parameters come exclusively from environment variables
+schemas:
+  - InstancePool
+files:
+  - src/modules/search-retrieval/instance-pool.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+category: service
+implementationSteps:
+  - Define built-in PUBLIC_SEARXNG_INSTANCES array with at least 3 known public
+    SearXNG URLs
+  - Implement createInstancePool that reads appConfig.searxngUrl, validates URL
+    via try/new URL(), and constructs InstancePool with mode self-hosted or
+    public
+  - Implement getCurrentInstance, advanceToNextInstance, promoteInstance,
+    resetCursor, hasMoreInstances operating on the InstancePool cursor and
+    instances array
+  - Add stderr logging for mode selection, endpoint configuration, and instance
+    reordering using the shared logger
+  - Ensure no file I/O or database writes — all state is process-memory volatile

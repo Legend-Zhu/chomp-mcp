@@ -1,0 +1,113 @@
+id: SY8
+title: Main synthesizer orchestrator — synthesize and synthesizeSingle
+description: >
+  Implement the public entry points synthesize() and synthesizeSingle(). The
+  orchestrator ties together
+
+  prompt building, token estimation, single-call vs batch-and-merge routing,
+  response parsing, source
+
+  reconciliation, and comprehensive observability logging. Guarantees that the
+  returned Promise never
+
+  rejects — all errors route to degradationFallback.
+requirements:
+  - US-SY-003
+  - US-SY-004
+  - US-SY-005
+  - US-SY-007
+  - US-SY-008
+  - US-SY-009
+  - US-SY-010
+  - BG-SY-001
+  - BG-SY-002
+  - BG-SY-003
+  - NFR-SY-001
+  - NFR-SY-002
+  - NFR-SY-004
+  - NFR-SY-005
+  - DC-SY-003
+  - DC-SY-005
+acceptanceCriteria:
+  - synthesize(query, contents, focus?) returns Promise<DigestResult> that never
+    rejects
+  - "synthesize logs '[SY] synthesis start: query=\"{truncated_query}\",
+    sources={N}, focus=\"{focus||none}\"' at start"
+  - "synthesize logs '[SY] synthesis done: duration={ms}ms, tokens={N},
+    batches={N}, degraded={true|false}' on completion"
+  - "synthesize logs '[SY] synthesis error: {message}, action={retry|degrade}'
+    on errors"
+  - Query text is truncated to 80 characters in logs
+  - Empty contents input triggers immediate degradation with reason 'no content
+    to synthesize'
+  - When estimated tokens <= safe threshold, single LLM call is made
+  - When estimated tokens > safe threshold, routes to batchAndMerge
+  - "Logs '[SY] estimated tokens: {N} (threshold: {M})' before routing decision"
+  - "Logs '[SY] synthesis tokens: {prompt+completion}' on successful LLM
+    response"
+  - Source reconciliation appends missing input source URLs to parsed result
+  - synthesizeSingle(url, title, content, focus?) returns degradation if
+    content.length < 200 with reason 'content too short for meaningful
+    synthesis'
+  - synthesizeSingle returns DigestResult with sources containing exactly one
+    entry {url, title}
+  - On any unrecoverable error, returns degradationFallback result
+  - All logging is to stderr only — zero stdout output
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - DigestResult
+  - ContentItem
+files:
+  - src/modules/synthesize/synthesizer.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY2
+  - SY3
+  - SY4
+  - SY5
+  - SY6
+  - SY7
+category: service
+implementationSteps:
+  - Import createLLMClient, callLLMWithRetry from llm-client; buildSystemPrompt,
+    buildUserPrompt, buildSingleSourcePrompt from prompt-builder; estimateTokens
+    from token-estimator; parseDigestResponse, reconcileSources from
+    response-parser; batchAndMerge from batch-merger; degradationFallback from
+    degradation-handler
+  - Import SynthesizeConfig and types from types.ts; import ContentItem,
+    DigestResult, SourceRef from shared types
+  - Import shared logger from ../../shared/utils/logger.ts
+  - Create module-level LLM client instance initialized lazily on first call,
+    using config from shared config or env vars
+  - "Implement synthesize(query, contents, focus?): wrap entire body in
+    try/catch that returns degradationFallback on any exception"
+  - "  Step 1: Record startTime = Date.now()"
+  - "  Step 2: Log synthesis start with truncated query (max 80 chars), source
+    count, focus"
+  - "  Step 3: If contents is empty array, return degradationFallback(query,
+    contents, 'no content to synthesize')"
+  - "  Step 4: Build systemPrompt = buildSystemPrompt(), userPrompt =
+    buildUserPrompt(query, contents, focus)"
+  - "  Step 5: Estimate total tokens = estimateTokens(systemPrompt +
+    userPrompt); log '[SY] estimated tokens: {N} (threshold: {M})'"
+  - "  Step 6: Compute safeThreshold = config.maxContextTokens *
+    config.safeThresholdRatio"
+  - "  Step 7: If estimated tokens <= safeThreshold: callLLMWithRetry →
+    parseDigestResponse → reconcileSources → return"
+  - "  Step 8: If estimated tokens > safeThreshold: delegate to batchAndMerge"
+  - "  Step 9: Log '[SY] synthesis tokens: {promptTokens + completionTokens}' on
+    success"
+  - "  Step 10: Log synthesis done with duration, total tokens, batch count,
+    degraded flag"
+  - "  Step 11: In catch block: log '[SY] synthesis error: {message},
+    action=degrade', return degradationFallback"
+  - "Implement synthesizeSingle(url, title, content, focus?): if content.length
+    < 200, return degradationFallback(url,
+    [{url,title,content,score:1,snippet:''}], 'content too short for meaningful
+    synthesis')"
+  - "  Otherwise: build single-source prompt, callLLMWithRetry,
+    parseDigestResponse, override sources to [{url, title}], return"
+  - "  Wrap in try/catch returning degradation on any error"
+  - Export synthesize and synthesizeSingle

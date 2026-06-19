@@ -1,0 +1,92 @@
+id: PL4
+title: Implement web_search pipeline flow
+description: |
+  Placeholder.
+requirements:
+  - US-PL-001
+  - US-PL-006
+  - US-PL-008
+  - US-PL-010
+  - US-PL-011
+  - US-PL-014
+  - US-PL-015
+  - BG-PL-001
+  - NFR-PL-001
+  - NFR-PL-004
+  - NFR-PL-006
+  - NFR-PL-007
+  - NFR-PL-008
+  - DC-PL-003
+  - DC-PL-004
+acceptanceCriteria:
+  - executeWebSearchPipeline sequentially calls SR.search, then SC.scrape
+    concurrently (capped at maxConcurrency), then DD.deduplicate, then
+    SY.synthesize
+  - Search results are passed to the scrape stage as SearchResult objects;
+    successful scrapes are mapped to ContentItem objects before deduplication
+  - Deduplicated ContentItem array plus original query and focus are passed to
+    SY.synthesize
+  - A single URL scrape failure (HTTP error, timeout, network error, or uncaught
+    exception) is caught, logged to stderr with URL and error category, added to
+    failedUrls, and excluded from downstream stages while remaining URLs proceed
+  - When SR.search fails or returns zero usable results, a PipelineError is
+    thrown with the failure reason, SearXNG URL, and remediation suggestion
+  - When all candidate URLs fail to scrape (zero content), the pipeline skips
+    deduplicate/synthesize and throws a PipelineError listing failed URLs and
+    reasons
+  - When DD.deduplicate filters out all results, a message is returned
+    indicating all results were duplicates with original vs remaining counts
+  - When SY.synthesize fails, a degraded fallback string is returned with
+    concatenated excerpts (respecting maxContentChars per page), a notice
+    prefix, and a Sources section
+  - The abort signal from the timeout guard is passed to each SC.scrape call and
+    checked at each stage boundary
+  - Structured log lines are emitted to stderr at each stage transition with
+    stage name, input/output counts, and elapsed milliseconds
+  - Raw HTML from scrape results is not retained after ContentItem construction
+    — only extracted text content flows forward
+  - All operations are delegated to SR, SC, DD, SY modules — no direct HTTP,
+    parsing, or LLM calls in this file
+  - The pipeline is stateless — no shared mutable state persists between
+    invocations
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas:
+  - PipelineError
+  - PipelineTimeoutError
+files:
+  - src/modules/pipeline-orchestration/web-search-pipeline.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL1
+  - PL2
+  - PL3
+category: service
+implementationSteps:
+  - Import search from search-retrieval, scrape from scrape-extract, deduplicate
+    from deduplicate, synthesize from synthesize
+  - Import ConcurrencyLimiter from ./concurrency-limiter, TimeoutGuard from
+    ./timeout-guard, PipelineError/PipelineTimeoutError and factories from
+    ./orchestrator
+  - "Import shared types: SearchResult, ScrapeResult, ContentItem, DigestResult,
+    PipelineConfig, StageLog, FailedUrl"
+  - Import the stderr logger from shared/utils/logger
+  - "Define executeWebSearchPipeline(query, maxResults, focus, config, signal):
+    Promise<PipelineResult> (or Promise<string> per design — returns digest
+    string or throws)"
+  - tmp1
+  - tmp2
+  - "After scrape stage: if zero successful scrapes, throw createPipelineError
+    listing all failedUrls with reasons; log scrape stage summary"
+  - Release references to raw ScrapeResult objects after ContentItem
+    construction (set to undefined or use block scope) for memory efficiency per
+    NFR-PL-007
+  - "Stage 3 (deduplicate): Call deduplicate(contentItems); if result array is
+    empty and input was non-empty, return message about all-duplicate results
+    with counts; log stage"
+  - Check signal.aborted before synthesize; if aborted and content is available,
+    construct degraded fallback from available content
+  - tmp4
+  - Emit final log line with outcome (success/partial/degraded/failed), total
+    elapsed time, and per-stage item counts
+  - Ensure all timer/semaphore cleanup happens in finally blocks

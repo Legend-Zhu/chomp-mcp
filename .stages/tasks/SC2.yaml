@@ -1,0 +1,53 @@
+id: SC2
+title: URL validator with SSRF protection
+description: >
+  Implement url-validator.ts which validates the input URL before any network
+  operation.
+
+  Checks that the URL is a non-empty string, parses via the URL constructor,
+  requires
+
+  http/https scheme, and blocks private/loopback IP ranges (RFC 1918, ::1,
+  169.254.169.254)
+
+  via DNS resolution to prevent SSRF attacks. Returns a ValidationResult with a
+  clear
+
+  error message for each rejection condition.
+requirements:
+  - US-SC-013
+  - NFR-SC-003
+acceptanceCriteria:
+  - "validateUrl('') returns valid: false with error 'URL is required'"
+  - "validateUrl(123 as any) or non-string input returns valid: false with error
+    'URL is required'"
+  - "Invalid URL string returns valid: false with error 'Invalid URL: {input}'"
+  - "URL with scheme file:, ftp:, data: returns valid: false with error 'Only
+    HTTP(S) URLs are supported'"
+  - "URL whose hostname resolves to 127.0.0.1, 10.x.x.x, 172.16-31.x.x,
+    192.168.x.x, ::1, or 169.254.169.254 returns valid: false with error 'URL
+    resolves to a private or loopback address; blocked for security'"
+  - "Valid public http/https URL returns valid: true with error null"
+  - If hostname is already an IP literal (not a domain), it is checked against
+    private ranges directly without DNS lookup
+  - DNS resolution errors do not cause a crash; the URL is treated as invalid
+schemas:
+  - ValidationResult
+files:
+  - src/modules/scrape-extract/url-validator.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import ValidationResult from ./types
+  - "Define TRANSIENT and private IP range checker (CIDR ranges: 127.0.0.0/8,
+    10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, ::1, 169.254.169.254)"
+  - "Implement validateUrl(url: string): Promise<ValidationResult> — first check
+    type and emptiness, then try new URL() parse, then check protocol"
+  - If hostname is an IP literal, check against private ranges; otherwise use
+    dns.promises.lookup() to resolve and check each resolved address
+  - "Wrap DNS resolution in try/catch; on failure return valid: false with a
+    clear error"
+  - "Return valid: true, error: null for URLs passing all checks"

@@ -1,0 +1,69 @@
+id: SRS10
+title: Write unit tests for SearXNG client and response parser
+description: >
+  Create tests/modules/search-retrieval/searxng-client.test.ts and
+
+  tests/modules/search-retrieval/response-parser.test.ts. Client tests mock
+  global fetch
+
+  to verify URL construction, timeout via AbortController, and Retry-After
+  parsing.
+
+  Parser tests verify JSON extraction, malformed-entry skipping, non-JSON
+  detection, and
+
+  empty-results handling.
+requirements:
+  - US-SR-001
+  - US-SR-002
+  - US-SR-004
+  - US-SR-008
+  - US-SR-009
+  - NFR-SR-004
+  - DC-SR-004
+  - DC-SR-006
+acceptanceCriteria:
+  - searxng-client.test.ts verifies buildSearchUrl includes q, format=json,
+    safesearch=1 params
+  - searxng-client.test.ts verifies fetchSearXNG throws SearchTimeoutError when
+    fetch is aborted
+  - searxng-client.test.ts verifies SearXNGFetchResult includes correct status,
+    body, contentType, retryAfterMs
+  - searxng-client.test.ts verifies only native fetch is used (no axios/got
+    imports)
+  - response-parser.test.ts verifies valid JSON with results array produces
+    correct ParsedResult entries
+  - response-parser.test.ts verifies entries with missing/invalid url are
+    skipped with skippedMalformed counter
+  - response-parser.test.ts verifies missing/non-array results key returns empty
+    ParseOutput
+  - response-parser.test.ts verifies non-JSON body throws SearchParseError with
+    Content-Type and body excerpt
+  - response-parser.test.ts verifies empty results array returns empty results
+    without error
+  - response-parser.test.ts verifies a single malformed entry does not abort
+    parsing of remaining entries
+schemas:
+  - SearXNGFetchResult
+  - SearXNGRawResult
+  - ParseOutput
+files:
+  - tests/modules/search-retrieval/searxng-client.test.ts
+  - tests/modules/search-retrieval/response-parser.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS4
+  - SRS5
+category: test
+implementationSteps:
+  - Mock global fetch in searxng-client.test.ts using vi.fn or jest.fn with
+    controllable AbortController behavior
+  - Test buildSearchUrl with special characters in query to verify proper URL
+    encoding
+  - Test timeout by making fetch reject with AbortError after configured delay
+  - Test Retry-After header parsing for both integer-seconds and HTTP-date
+    formats
+  - In response-parser.test.ts, construct SearXNGFetchResult fixtures with
+    various JSON, non-JSON, and malformed-content scenarios
+  - Verify SearchParseError message includes first 200 chars of HTML body

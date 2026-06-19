@@ -1,0 +1,117 @@
+id: SC9
+title: Main scrape orchestrator with full pipeline
+description: >
+  Implement scraper.ts — the main scrape() orchestrator that ties together URL
+  validation,
+
+  HTTP fetching, encoding detection, content-type routing, Readability
+  extraction, Puppeteer
+
+  fallback, and truncation into a single coherent flow. Manages per-page and
+  total timeouts,
+
+  resolves configuration from ScrapeOptions, enforces error isolation (never
+  throws for
+
+  expected failures), and emits structured stderr lifecycle logs
+  (START/OK/FAIL/FALLBACK/
+
+  ENCODING). Always returns a ScrapeResult. Releases intermediate buffers for
+  memory
+
+  efficiency.
+requirements:
+  - US-SC-001
+  - US-SC-002
+  - US-SC-004
+  - US-SC-005
+  - US-SC-006
+  - US-SC-009
+  - US-SC-011
+  - US-SC-012
+  - BG-SC-001
+  - BG-SC-002
+  - BG-SC-004
+  - NFR-SC-001
+  - NFR-SC-004
+  - NFR-SC-005
+  - NFR-SC-006
+acceptanceCriteria:
+  - scrape(url, options?) always returns Promise<ScrapeResult> and never rejects
+    for expected failures (HTTP errors, timeouts, parse failures, SSRF)
+  - Records elapsedMs as wall-clock time from start to completion using
+    Date.now()
+  - Resolves config from ScrapeOptions overrides falling back to defaults
+    (timeoutMs=15000, maxContentChars=8000)
+  - "Flow: validateUrl -> fetchUrl -> detectCharset+decodeToUtf8 -> routeContent
+    -> (HTML: extractWithReadability, if failed: renderPage then
+    extractWithReadability) -> truncate -> return success result"
+  - For non-HTML content types (JSON/XML/text), skips Readability and returns
+    directly after truncation
+  - "Binary/unsupported content types return ScrapeResult with success: false
+    and error 'Unsupported content type: {contentType}'"
+  - Total timeout (primary + fallback) enforced at maxTotalTimeoutMs; aborts
+    remaining work and returns best partial result or error
+  - Logs '[scrape] START {url}' at the beginning to process.stderr
+  - Logs '[scrape] OK {url} method={method} chars={N} truncated={bool}
+    ms={elapsed}' on success to process.stderr
+  - Logs '[scrape] FAIL {url} error={message} ms={elapsed}' on failure to
+    process.stderr
+  - Logs '[scrape] FALLBACK {url} -> puppeteer' when Puppeteer fallback is
+    triggered
+  - Logs '[scrape] ENCODING {url} charset={detected}' when non-UTF-8 charset
+    detected
+  - All log output goes to process.stderr exclusively, never process.stdout
+  - Intermediate raw HTML buffers are dereferenced after extraction to satisfy
+    memory efficiency requirement
+  - No shared mutable state exists between scrape invocations (stateless)
+  - Success result guarantees textContent is non-null and non-empty (>= 1 char)
+schemas:
+  - ScrapeResult
+  - ScrapeConfig
+files:
+  - src/modules/scrape-extract/scraper.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC2
+  - SC3
+  - SC4
+  - SC5
+  - SC6
+  - SC7
+  - SC8
+category: service
+implementationSteps:
+  - "Import all component functions: validateUrl, fetchUrl, detectCharset,
+    decodeToUtf8, routeContent, extractWithReadability, renderPage, truncate"
+  - "Import types: ScrapeResult, ScrapeOptions, ScrapeConfig from respective
+    locations"
+  - "Implement resolveConfig(options?: ScrapeOptions): ScrapeConfig — read
+    defaults, apply per-call overrides, compute maxTotalTimeoutMs = timeoutMs *
+    2"
+  - Implement logging helper functions (logStart, logSuccess, logFail,
+    logFallback, logEncoding) that write formatted strings to process.stderr
+  - "Implement makeFailureResult(url, finalUrl, error, elapsedMs): ScrapeResult
+    helper"
+  - "Implement makeSuccessResult(url, finalUrl, title, textContent,
+    extractionMethod, truncated, elapsedMs): ScrapeResult helper"
+  - "Implement scrape(url, options?): record startTime, log START, resolveConfig"
+  - Call validateUrl; if invalid return failure result with appropriate error
+  - Call fetchUrl with timeout; if failure return failure result with error from
+    FetchResult
+  - Detect charset, decode body to UTF-8, log ENCODING if non-UTF-8
+  - Route content by type; for non-HTML types return success result after
+    truncation
+  - "For HTML: call extractWithReadability; if method is 'readability' return
+    success after truncation"
+  - "If 'readability-failed': log FALLBACK, call renderPage; if render succeeds
+    call extractWithReadability on rendered HTML"
+  - If Puppeteer path yields >= minContentChars, return success with
+    extractionMethod 'puppeteer'
+  - If all paths yield insufficient content, return failure with error 'Failed
+    to extract meaningful content from {url}'
+  - Enforce total timeout check before each major step; if exceeded return best
+    result or error
+  - Wrap the entire flow in try/catch; catch unexpected errors and return a
+    failure result rather than throwing

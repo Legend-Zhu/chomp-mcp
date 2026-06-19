@@ -1,0 +1,65 @@
+id: SC11
+title: Unit tests for URL validator, truncator, encoding detector, and
+  content-type router
+description: >
+  Write unit test files for the four pure-logic leaf components:
+  url-validator.test.ts
+
+  (SSRF checks, scheme validation, malformed URL handling), truncator.test.ts
+  (word-boundary
+
+  truncation, disabled mode, marker appending), encoding-detector.test.ts
+  (charset detection
+
+  from header and meta tags, iconv-lite decode), and content-type-router.test.ts
+  (HTML/JSON/
+
+  XML/text/binary routing, byte sniffing). Tests use mocked inputs where needed.
+requirements:
+  - US-SC-007
+  - US-SC-008
+  - US-SC-009
+  - US-SC-013
+  - NFR-SC-003
+acceptanceCriteria:
+  - "url-validator.test.ts covers: empty string, non-string, invalid URL,
+    non-http scheme, private IP blocking (mocked DNS), valid public URL"
+  - "truncator.test.ts covers: under-limit text (no truncation), over-limit text
+    (word boundary truncation with marker), maxChars=0 (disabled), negative
+    maxChars, no word boundary case"
+  - "encoding-detector.test.ts covers: charset from Content-Type header, charset
+    from HTML meta tag, default UTF-8, GBK decode via iconv-lite, replacement
+    character warning"
+  - "content-type-router.test.ts covers: HTML routing (null textContent), JSON
+    parsing and formatting, XML tag stripping, plain text passthrough, binary
+    error, byte sniffing when header missing"
+  - All tests use a test runner compatible with the project (vitest or node:test)
+  - Tests do not make real network calls (mock DNS and fetch where needed)
+schemas:
+  - ValidationResult
+  - TruncationResult
+  - ContentTypeResult
+files:
+  - tests/modules/scrape-extract/url-validator.test.ts
+  - tests/modules/scrape-extract/truncator.test.ts
+  - tests/modules/scrape-extract/encoding-detector.test.ts
+  - tests/modules/scrape-extract/content-type-router.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC2
+  - SC3
+  - SC4
+  - SC5
+category: test
+implementationSteps:
+  - Set up test file imports for each component under test
+  - "url-validator: mock dns.promises.lookup to simulate private IP resolution;
+    test each validation path"
+  - "truncator: create test strings of various lengths; assert truncation
+    behavior and marker presence"
+  - "encoding-detector: create Uint8Array test buffers with known encodings;
+    test detectCharset and decodeToUtf8"
+  - "content-type-router: test each content-type branch with representative body
+    strings; test byte-sniffing with null contentType"
+  - Mock process.stderr to verify warning logs where applicable

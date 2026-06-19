@@ -1,0 +1,61 @@
+id: SC5
+title: Content-type router for HTML/JSON/XML/text/binary
+description: >
+  Implement content-type-router.ts that dispatches based on the Content-Type
+  header (or
+
+  byte-sniffing when the header is missing) to determine the content category:
+  HTML, JSON,
+
+  XML, plain text, or binary/unsupported. For non-HTML types it extracts text
+  immediately
+
+  (JSON parsed and formatted, XML tags stripped via cheerio, plain text returned
+  as-is).
+
+  Binary types return an error. HTML returns kind 'html' with null textContent
+  (for further
+
+  Readability extraction).
+requirements:
+  - US-SC-009
+acceptanceCriteria:
+  - "routeContent('text/html', body) returns { kind: 'html', textContent: null,
+    extractionMethod: null, error: null }"
+  - routeContent('application/xhtml+xml', body) returns kind 'html'
+  - routeContent('application/json', body) parses JSON and returns kind 'json'
+    with formatted indented textContent and extractionMethod 'json'
+  - routeContent('application/xml', body) strips XML tags via cheerio and
+    returns kind 'xml' with extractionMethod 'xml'
+  - routeContent('text/plain', body) returns kind 'text' with body as-is and
+    extractionMethod 'raw-text'
+  - routeContent('text/markdown', body) returns kind 'text' with
+    extractionMethod 'raw-text'
+  - "routeContent('application/pdf', body) returns kind 'binary' or
+    'unsupported' with error 'Unsupported content type: application/pdf'"
+  - When Content-Type is null/missing, sniffs first 512 bytes for
+    <html/<!doctype/<body (HTML), { or [ (JSON), <?xml (XML), or plain text
+schemas:
+  - ContentTypeResult
+files:
+  - src/modules/scrape-extract/content-type-router.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import ContentTypeResult from ./types; import cheerio for XML tag stripping
+  - Implement a helper to parse the primary content-type from a header string
+    (strip parameters)
+  - "Implement byte-sniffing fallback: check first 512 bytes for HTML/JSON/XML
+    signatures"
+  - "Implement routeContent(contentType: string | null, bodyText: string):
+    ContentTypeResult"
+  - "For JSON: try JSON.parse then JSON.stringify(obj, null, 2); on parse
+    failure return as raw text"
+  - "For XML: use cheerio.load(bodyText).text() to strip tags"
+  - "For text: return bodyText as-is"
+  - "For binary/image/pdf/octet-stream: return error with message 'Unsupported
+    content type: {contentType}'"
+  - "For HTML: return kind 'html' with null textContent (defer to Readability)"

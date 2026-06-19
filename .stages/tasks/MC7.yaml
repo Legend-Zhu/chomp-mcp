@@ -1,0 +1,74 @@
+id: MC7
+title: Unit Tests for Tool Dispatch and Response Formatting
+description: >
+  Create test file for tool-handlers.ts covering dispatch routing, validation
+  failure paths,
+
+  success/error response formatting, truncation at 25000 chars, timeout error
+  handling,
+
+  generic error handling, unknown tool rejection, and the catch-all safety
+  guarantee. Uses
+
+  mock OrchestrationHandlers to avoid real PL dependencies.
+requirements:
+  - US-MC-006
+  - US-MC-007
+  - US-MC-008
+  - US-MC-009
+  - US-MC-011
+  - NFR-MC-004
+  - NFR-MC-005
+acceptanceCriteria:
+  - dispatchToolCall routes web_search to mock runWebSearch and returns
+    isError:false with digest
+  - dispatchToolCall routes web_fetch to mock runWebFetch and returns
+    isError:false with digest
+  - "dispatchToolCall with unknown tool name returns isError:true with 'Unknown
+    tool: {name}. Available tools: web_search, web_fetch.'"
+  - dispatchToolCall with unknown tool does NOT invoke any mock handler
+  - dispatchToolCall with missing query for web_search returns isError:true with
+    validation message
+  - formatSuccessResponse wraps digest in content array with type text and
+    isError false
+  - formatSuccessResponse truncates at 25000 chars and appends truncation marker
+  - formatErrorResponse sets isError true with provided message
+  - When mock runWebSearch throws AppError with category 'timeout',
+    dispatchToolCall returns isError:true with 'Research timed out. Please try
+    reducing max_results or try again later.'
+  - "When mock runWebSearch throws generic Error, dispatchToolCall returns
+    isError:true with 'Internal error: {message}. See server logs for details.'"
+  - Stack traces never appear in CallToolResult content
+  - dispatchToolCall never throws even when handler throws synchronously
+  - All tests pass under vitest
+schemas:
+  - CallToolResult
+  - TextContent
+  - OrchestrationHandlers
+files:
+  - tests/modules/mcp-server/tool-handlers.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - MC3
+category: test
+implementationSteps:
+  - Import { describe, it, expect, vi } from 'vitest'
+  - Import { dispatchToolCall, formatSuccessResponse, formatErrorResponse } from
+    '../../../src/modules/mcp-server/tool-handlers.js'
+  - Import { AppError } from '../../../src/shared/utils/errors.js'
+  - "Create mock handlers object: { runWebSearch: vi.fn(), runWebFetch: vi.fn()
+    } for each test"
+  - Write describe('dispatchToolCall') with test cases for web_search success,
+    web_fetch success, unknown tool, missing query validation, invalid url
+    validation
+  - Write test for mock runWebSearch throwing AppError with category 'timeout'
+    and verify timeout message
+  - Write test for mock runWebSearch throwing generic Error and verify internal
+    error message without stack trace
+  - Write describe('formatSuccessResponse') with test for normal digest and test
+    for 25000+ char truncation
+  - Write describe('formatErrorResponse') verifying isError true and message
+    content
+  - Write test verifying dispatchToolCall catches synchronous throws and returns
+    error CallToolResult

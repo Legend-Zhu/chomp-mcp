@@ -1,0 +1,95 @@
+id: SY12
+title: Integration tests for batch-merger and synthesizer orchestrator
+description: >
+  Write integration tests for batch-merger (batch splitting, parallel synthesis,
+  merge call, recursive
+
+  re-batching) and the synthesizer orchestrator (synthesize single-call path,
+  batch routing, synthesizeSingle
+
+  short-content guard, degradation on failure, observability logging).
+requirements:
+  - US-SY-003
+  - US-SY-004
+  - US-SY-005
+  - US-SY-009
+  - US-SY-010
+  - BG-SY-001
+  - BG-SY-003
+  - NFR-SY-001
+  - NFR-SY-002
+  - NFR-SY-004
+  - DC-SY-005
+acceptanceCriteria:
+  - batch-merger.test.ts verifies content items are split into correct number of
+    batches when exceeding token threshold
+  - "batch-merger.test.ts verifies batch logging '[SY] batching: {N} batches for
+    {M} content items'"
+  - batch-merger.test.ts verifies intermediate digests are merged into a single
+    DigestResult via merge call (mocked)
+  - batch-merger.test.ts verifies recursive re-batching when merge prompt
+    exceeds threshold
+  - batch-merger.test.ts verifies degradation is returned when batch synthesis
+    fails
+  - synthesizer.test.ts verifies synthesize() with small content returns parsed
+    DigestResult (single-call path)
+  - synthesizer.test.ts verifies synthesize() with large content routes to
+    batch-and-merge
+  - synthesizer.test.ts verifies synthesize() with empty contents returns
+    degradation with 'no content to synthesize'
+  - synthesizer.test.ts verifies synthesize() never rejects — all errors caught
+    and degraded
+  - synthesizer.test.ts verifies synthesizeSingle() with content < 200 chars
+    returns degradation with 'content too short'
+  - synthesizer.test.ts verifies synthesizeSingle() returns sources with exactly
+    one entry
+  - synthesizer.test.ts verifies start/done/error log messages and query
+    truncation to 80 chars
+  - synthesizer.test.ts verifies all logs go to stderr, never stdout
+  - "synthesizer.test.ts verifies token estimation log '[SY] estimated tokens:
+    {N} (threshold: {M})'"
+  - All tests use mocked LLM client
+schemas:
+  - SynthesizeConfig
+  - LLMResponse
+  - DigestResult
+  - ContentItem
+files:
+  - tests/modules/synthesize/batch-merger.test.ts
+  - tests/modules/synthesize/synthesizer.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY7
+  - SY8
+category: test
+implementationSteps:
+  - "Write batch-merger.test.ts: create mock OpenAIClient that returns
+    predetermined LLMResponse objects"
+  - "Test splitIntoBatches: create ContentItems with large content, verify
+    correct number of batches, verify each batch fits within threshold"
+  - "Test batchAndMerge with 2 batches: verify each batch is synthesized, verify
+    merge call is made, verify final result has merged keyPoints and sources"
+  - "Test recursive merge: set threshold very low so merge prompt overflows,
+    verify re-batching occurs"
+  - "Test degradation path: mock LLM to throw on all calls, verify
+    degradationFallback result returned"
+  - "Write synthesizer.test.ts: mock the LLM client at module level"
+  - "Test synthesize() single-call path: provide 2 small ContentItems, mock LLM
+    returns structured response, verify parsed DigestResult with answer,
+    keyPoints, sources"
+  - "Test synthesize() batch path: provide many large ContentItems exceeding
+    threshold, verify batchAndMerge is invoked"
+  - "Test synthesize() empty contents: assert degradation returned with correct
+    reason"
+  - "Test synthesize() LLM failure: mock LLM to throw, assert degradation
+    returned, assert Promise resolves (never rejects)"
+  - "Test synthesizeSingle() short content: pass content of 100 chars, assert
+    degradation with 'content too short for meaningful synthesis'"
+  - "Test synthesizeSingle() normal: pass content > 200 chars, mock LLM, verify
+    sources has exactly one entry"
+  - Mock process.stderr.write to capture and assert all log formats (start,
+    done, error, estimated tokens, synthesis tokens)
+  - "Verify query truncation: pass a 200-char query, assert logged query is max
+    80 chars"
+  - Assert process.stdout.write is never called during any test

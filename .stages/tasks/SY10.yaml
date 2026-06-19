@@ -1,0 +1,72 @@
+id: SY10
+title: Unit tests for token-estimator, prompt-builder, and response-parser
+description: >
+  Write comprehensive unit tests for the pure-function components:
+  token-estimator (EN/CJK estimation
+
+  accuracy), prompt-builder (system/user/single/merge prompt structure and
+  content), and response-parser
+
+  (multi-strategy parsing, key point splitting, URL extraction, source
+  reconciliation).
+requirements:
+  - US-SY-002
+  - US-SY-008
+  - US-SY-009
+  - NFR-SY-004
+acceptanceCriteria:
+  - token-estimator.test.ts verifies English text estimate ~length/4, CJK text
+    estimate ~length/1.5, empty string returns 0, mixed content handled
+  - prompt-builder.test.ts verifies buildSystemPrompt contains all required
+    directives (Answer, Key Points, Sources, anti-hallucination)
+  - prompt-builder.test.ts verifies buildUserPrompt interleaves content with
+    URLs and titles, includes focus directive when provided
+  - prompt-builder.test.ts verifies buildSingleSourcePrompt and buildMergePrompt
+    return correctly structured prompts
+  - response-parser.test.ts verifies markdown header parsing extracts Answer,
+    Key Points (as array), and Sources correctly
+  - response-parser.test.ts verifies bullet splitting for -, *, and numbered
+    lists
+  - response-parser.test.ts verifies URL regex extraction and title pairing
+  - response-parser.test.ts verifies fallback to full-response-as-answer when no
+    headers present
+  - response-parser.test.ts verifies reconcileSources appends missing known
+    sources
+  - All tests pass under vitest or jest
+schemas:
+  - LLMResponse
+  - DigestResult
+  - ContentItem
+files:
+  - tests/modules/synthesize/token-estimator.test.ts
+  - tests/modules/synthesize/prompt-builder.test.ts
+  - tests/modules/synthesize/response-parser.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SY2
+  - SY3
+  - SY4
+category: test
+implementationSteps:
+  - "Write token-estimator.test.ts: test English text (e.g., 400 chars → ~100
+    tokens), CJK text (e.g., 150 chars → ~100 tokens), empty string → 0,
+    whitespace-only → 0, mixed content"
+  - "Write prompt-builder.test.ts: assert buildSystemPrompt() includes 'Answer',
+    'Key Points', 'Sources', and anti-hallucination instruction"
+  - Test buildUserPrompt with sample ContentItems — assert each URL and title
+    appears in output, assert focus directive appears when focus is provided
+  - Test buildSingleSourcePrompt — assert URL, title, content, and focus are
+    included
+  - Test buildMergePrompt — assert returned object has systemPrompt and
+    userPrompt, assert intermediate digest data is serialized
+  - "Write response-parser.test.ts: create sample LLM responses with ## Answer,
+    ## Key Points (bullets), ## Sources (URLs)"
+  - Test parseDigestResponse extracts correct answer text, keyPoints array, and
+    sources array
+  - Test key point splitting with -, *, 1. 2. formats
+  - Test URL extraction with various URL formats and title pairing
+  - Test fallback strategy when no markdown headers — entire response becomes
+    answer
+  - Test reconcileSources with known sources partially present in parsed result
+    — verify missing ones appended

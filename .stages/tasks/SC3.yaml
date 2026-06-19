@@ -1,0 +1,45 @@
+id: SC3
+title: Content truncator at word boundary
+description: >
+  Implement truncator.ts that truncates extracted text at the nearest word
+  boundary at or
+
+  before MAX_CONTENT_CHARS and appends the marker '…[truncated]'. When maxChars
+  is 0 or
+
+  negative, truncation is disabled. Returns a TruncationResult with the text and
+  a truncated
+
+  boolean flag.
+requirements:
+  - US-SC-008
+acceptanceCriteria:
+  - "truncate(text, 8000) where text length <= 8000 returns original text with
+    truncated: false"
+  - truncate(text, 8000) where text length > 8000 truncates at the nearest word
+    boundary at or before character 8000 and appends '…[truncated]'
+  - "truncate(text, 0) returns original text with truncated: false (no
+    truncation mode)"
+  - "truncate(text, -1) returns original text with truncated: false"
+  - Truncation preserves text from the beginning (title + first paragraphs), not
+    the middle
+  - If no word boundary is found before maxChars, truncates at exactly maxChars
+    to avoid breaking multi-byte characters
+schemas:
+  - TruncationResult
+files:
+  - src/modules/scrape-extract/truncator.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import TruncationResult from ./types
+  - "Implement truncate(text: string, maxChars: number): TruncationResult"
+  - "If maxChars <= 0, return { text, truncated: false }"
+  - "If text.length <= maxChars, return { text, truncated: false }"
+  - Search backwards from index maxChars for the last whitespace character;
+    truncate there if found, otherwise at maxChars
+  - Append '…[truncated]' marker to the truncated text
+  - "Return { text: truncatedText, truncated: true }"

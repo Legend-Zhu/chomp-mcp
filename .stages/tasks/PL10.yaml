@@ -1,0 +1,48 @@
+id: PL10
+title: Test web_fetch pipeline flow
+description: >
+  Create integration tests for the web_fetch pipeline flow using mocked SC and
+  SY functions.
+
+  Verify happy path, scrape failure error messages (HTTP/timeout/DNS),
+  empty-content handling,
+
+  synthesis-failure degradation, and both-content-and-synthesis-failure error.
+requirements:
+  - US-PL-002
+  - US-PL-007
+  - US-PL-009
+  - NFR-PL-002
+  - NFR-PL-008
+acceptanceCriteria:
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - All tests pass under the test runner
+schemas:
+  - PipelineError
+  - PipelineTimeoutError
+files:
+  - tests/modules/pipeline-orchestration/web-fetch-pipeline.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL5
+category: test
+implementationSteps:
+  - Set up mock functions for scrape and synthesizeSingle
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"

@@ -1,0 +1,54 @@
+id: PL1
+title: Implement timeout guard utility
+description: >
+  Create the TimeoutGuard component that enforces overall pipeline timeouts via
+  AbortController.
+
+  The guard starts a timer for PIPELINE_TIMEOUT_MS, fires controller.abort() on
+  expiry so that
+
+  in-flight scrape operations receive the abort signal and cancel their
+  underlying HTTP/Puppeteer
+
+  connections. Provides cleanup() to clear the timer, and exposes the
+  AbortSignal for propagation.
+
+  This is a foundational building block used by both pipeline flows and the
+  orchestrator entry functions.
+requirements:
+  - US-PL-004
+  - US-PL-005
+  - US-PL-015
+  - NFR-PL-005
+acceptanceCriteria:
+  - TimeoutGuard creates an AbortController and starts a setTimeout timer for
+    the configured PIPELINE_TIMEOUT_MS value
+  - When the timer fires, controller.abort() is invoked and the exposed
+    signal.aborted becomes true
+  - cleanup() clears the timer and releases resources; calling cleanup() after
+    the timer already fired is a no-op
+  - cleanup() is idempotent — multiple invocations produce no adverse effect or
+    error
+  - The exposed AbortSignal is accessible so downstream scrape calls can receive
+    abort events
+  - All timer cleanup happens within a finally block or explicit cleanup call so
+    no dangling timers leak
+  - Module compiles under tsc --noEmit with strict mode enabled
+schemas: []
+files:
+  - src/modules/pipeline-orchestration/timeout-guard.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+category: model
+implementationSteps:
+  - "Define a TimeoutGuard class with constructor accepting (timeoutMs: number)"
+  - In the constructor, create a new AbortController and start a setTimeout that
+    calls controller.abort() after timeoutMs milliseconds
+  - Store the timer handle so cleanup() can call clearTimeout on it
+  - Implement a readonly signal getter that returns controller.signal
+  - Implement isAborted getter returning controller.signal.aborted
+  - Implement cleanup() that clears the timer if it exists, guarded by an
+    internal boolean flag to ensure idempotency
+  - "Export the TimeoutGuard class and a convenience factory function
+    createTimeoutGuard(timeoutMs: number): TimeoutGuard"

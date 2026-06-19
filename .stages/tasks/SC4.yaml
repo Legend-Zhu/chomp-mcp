@@ -1,0 +1,52 @@
+id: SC4
+title: Encoding detector with charset conversion
+description: >
+  Implement encoding-detector.ts that detects the character encoding from the
+  Content-Type
+
+  header, falls back to HTML meta tag inspection, and defaults to UTF-8. Uses
+  iconv-lite
+
+  to decode non-UTF-8 byte streams (GBK, Shift-JIS, Big5, Latin-1, etc.) to
+  UTF-8 strings.
+
+  Logs a warning to stderr if replacement characters exceed 5% of total output.
+requirements:
+  - US-SC-007
+  - US-SC-011
+  - NFR-SC-007
+acceptanceCriteria:
+  - detectCharset(contentType, bodyBytes) returns 'utf-8' when Content-Type
+    header has no charset and no HTML meta charset tag is present
+  - detectCharset extracts charset from Content-Type 'text/html; charset=gbk'
+    and returns 'gbk'
+  - detectCharset falls back to inspecting HTML <meta charset='...'> tag when
+    Content-Type header has no charset
+  - decodeToUtf8(bodyBytes, 'gbk') correctly converts GBK-encoded bytes to UTF-8
+    string using iconv-lite
+  - When replacement characters (U+FFFD) exceed 5% of total characters in
+    decoded output, a warning is logged to process.stderr
+  - All log output goes to process.stderr only, never process.stdout
+  - iconv-lite is imported in a way that supports tree-shaking (import only
+    needed encodings or use streaming API)
+schemas:
+  - ExtractionOutput
+files:
+  - src/modules/scrape-extract/encoding-detector.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SC1
+category: service
+implementationSteps:
+  - Import iconv-lite using ESM-compatible import (default or namespace)
+  - "Implement detectCharset(contentType: string | null, bodyBytes: Uint8Array):
+    string — parse charset from Content-Type parameter; if absent, scan first
+    ~512 bytes of bodyBytes for <meta charset> or <meta http-equiv> patterns;
+    default to 'utf-8'"
+  - "Implement decodeToUtf8(bodyBytes: Uint8Array, charset: string, url:
+    string): string — use iconv-lite to decode if charset is not
+    utf-8/utf8/ascii"
+  - Count U+FFFD replacement characters in decoded string; if ratio > 5%, write
+    warning to process.stderr
+  - Ensure all diagnostic output uses process.stderr.write or console.error

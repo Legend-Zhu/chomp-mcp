@@ -1,0 +1,168 @@
+id: BOOTSTRAP
+title: Project Bootstrap — TypeScript MCP Server Skeleton
+description: >
+  (1) SCAFFOLD TOOL / COMMAND:
+
+  This project is a TypeScript MCP (Model Context Protocol) server built on
+
+  @modelcontextprotocol/sdk with stdio transport, strict-mode ESM, and Zod-based
+
+  parameter validation. There is no dedicated MCP CLI scaffolding generator, so
+  the
+
+  standard Node.js + TypeScript initialization commands serve as the scaffold:
+
+  - `npm init -y` creates a minimal baseline package.json at the project root.
+
+  - `npx tsc --init` creates a default tsconfig.json with commented-out options.
+
+  These two commands establish the foundational project manifest and TypeScript
+  compiler
+
+  configuration that Phase 1 then completely customizes for strict-mode ESM, all
+
+  runtime and development dependencies, and MCP-specific build/test scripts.
+
+
+  (2) SOLUTION STRUCTURE AFTER INIT:
+
+  The project is a flat Node.js package at the output directory root (no nested
+
+  project-name folder). After Phase 0 + Phase 1 the project has:
+
+  - package.json with "type": "module", all dependencies, and npm scripts.
+
+  - tsconfig.json configured for strict mode, ESM module resolution (NodeNext).
+
+  - .gitignore for Node.js + TypeScript artifacts.
+
+  - src/index.ts — a minimal but valid entry point that bootstraps the MCP
+  server.
+
+  The full source tree (src/shared/* and src/modules/* with their respective
+  index.ts
+
+  public-export files, types, and implementations) is populated by subsequent
+
+  module-specific tasks. The bootstrap creates ONLY the infrastructure that
+  makes the
+
+  project installable, compilable under `tsc --noEmit`, and runnable.
+
+
+  (3) SCAFFOLD-EXTRA FILES (Phase 1 — what the scaffold does NOT provide):
+
+  - package.json: Fully rewritten from the bare npm init stub. Adds "type":
+  "module",
+    all runtime deps (@modelcontextprotocol/sdk, zod, jsdom, @mozilla/readability,
+    puppeteer, iconv-lite) and dev deps (typescript, tsx, vitest, @types/node,
+    @types/jsdom), plus npm scripts: build, dev, start, test, typecheck.
+  - tsconfig.json: Fully rewritten from the tsc --init defaults. Configures
+  strict: true,
+    module/moduleResolution: NodeNext, target: ES2022, outDir: dist, rootDir: src,
+    esModuleInterop, skipLibCheck, and declaration generation.
+  - .gitignore: Ignores node_modules, dist, .env, coverage, *.log, .DS_Store,
+  and
+    IDE-specific files. Not produced by either scaffold command.
+  - src/index.ts: The main entry point that imports createServer() and starts
+  the stdio
+    transport. Minimal placeholder that ensures the project compiles and imports
+    successfully. Not produced by any scaffold command.
+requirements: []
+acceptanceCriteria:
+  - "`npm init -y` ran successfully and produced a baseline package.json at the
+    project root"
+  - "`npx tsc --init` ran successfully and produced a default tsconfig.json at
+    the project root"
+  - "package.json contains '\"type\": \"module\"', all runtime and dev
+    dependencies, and npm scripts (build, dev, start, test, typecheck)"
+  - "tsconfig.json is configured for strict mode with ESM (strict: true, module:
+    NodeNext, moduleResolution: NodeNext, target: ES2022)"
+  - .gitignore exists and excludes node_modules, dist, .env, and coverage
+  - "`npm install` completes without errors after Phase 1"
+  - "`tsc --noEmit` produces zero compilation errors after Phase 0 + Phase 1"
+  - src/index.ts exists and is a valid importable entry point
+schemas: []
+files:
+  - package.json
+  - tsconfig.json
+  - .gitignore
+  - src/index.ts
+mode: create
+dependsOn: []
+category: config
+implementationSteps:
+  - >
+    Phase 0: Run `npm init -y` in the project root (the output directory) to
+    create a
+
+    minimal baseline package.json. This is the Node.js standard initialization
+    command —
+
+    no framework-specific CLI exists for MCP servers, so npm init is the
+    appropriate
+
+    scaffold for this TypeScript/Node.js stack.
+  - >
+    Phase 0: Run `npx tsc --init` in the project root to create a default
+    tsconfig.json
+
+    with commented-out compiler options. This initializes the TypeScript
+    compiler
+
+    configuration that Phase 1 will fully customize.
+  - >
+    Phase 0: Adapt the generated package.json — set the package name to the
+    project name
+
+    and add "type": "module" to enable ESM imports/exports. The full dependency
+    list and
+
+    scripts are added in Phase 1.
+  - >
+    Phase 0: The generated tsconfig.json will be completely overwritten in Phase
+    1, so
+
+    no adaptation is needed here beyond confirming it exists.
+  - >
+    Phase 1: Overwrite package.json with the full project manifest:
+      - "type": "module" (ESM)
+      - "main": "dist/index.js", "types": "dist/index.d.ts"
+      - Runtime dependencies: @modelcontextprotocol/sdk, zod, jsdom, @mozilla/readability,
+        puppeteer, iconv-lite
+      - Dev dependencies: typescript, tsx, vitest, @types/node, @types/jsdom
+      - Scripts: "build": "tsc", "dev": "tsx src/index.ts", "start": "node dist/index.js",
+        "test": "vitest run", "typecheck": "tsc --noEmit"
+  - |
+    Phase 1: Overwrite tsconfig.json with strict-mode ESM configuration:
+      - compilerOptions: { target: "ES2022", module: "NodeNext",
+        moduleResolution: "NodeNext", strict: true, esModuleInterop: true,
+        skipLibCheck: true, outDir: "dist", rootDir: "src", declaration: true,
+        declarationMap: true, sourceMap: true, resolveJsonModule: true,
+        forceConsistentCasingInFileNames: true, noUnusedLocals: true,
+        noUnusedParameters: true, noImplicitReturns: true }
+      - include: ["src/**/*"]
+      - exclude: ["node_modules", "dist", "tests"]
+  - >
+    Phase 1: Create .gitignore with entries for node_modules/, dist/, .env,
+    .env.*,
+
+    coverage/, *.log, .DS_Store, .idea/, and .vscode/.
+  - >
+    Phase 1: Create src/index.ts as the main entry point. It should import
+    createServer
+
+    from the mcp-server module (or a local placeholder if that module does not
+    yet exist)
+
+    and connect the MCP server to a StdioServerTransport, wrapped in a top-level
+    async
+
+    function with structured error handling that logs to stderr. The file must
+    compile
+
+    cleanly under tsc --noEmit in strict mode.
+  - "Phase 1: Run `npm install` to resolve and install all declared
+    dependencies."
+  - "Phase 1: Run `npx tsc --noEmit` to verify that the project compiles with
+    zero errors."

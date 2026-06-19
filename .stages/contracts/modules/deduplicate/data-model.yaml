@@ -1,0 +1,52 @@
+schemas:
+  DeduplicatedItem:
+    description: "Output item after deduplication — extends ContentItem with dedup metadata"
+    extends: "ContentItem"
+    fields:
+      title: { type: string, required: true, description: "Page title from search result or scrape (inherited from ContentItem)" }
+      url: { type: string, required: true, description: "Original URL of the retained representative item" }
+      snippet: { type: string, required: true, description: "Search-result snippet text (inherited from ContentItem)" }
+      score: { type: number, required: true, description: "Relevance score of the retained representative item" }
+      content: { type: string, required: true, description: "Content text of the retained representative item" }
+      normalizedUrl: { type: string, required: true, description: "Canonical normalized URL after tracking-param strip, scheme/port/fragment/slash unification, and query-param sorting" }
+      mergedSources:
+        type: array
+        required: true
+        items: { type: string }
+        description: "Array of original URLs from items merged into this representative during content-level dedup (empty if no merges)"
+      fingerprintCount: { type: integer, required: true, minimum: 0, description: "Number of unique paragraph fingerprints in this item's fingerprint set" }
+
+  DDConfig:
+    description: "Configuration for the deduplication pipeline"
+    fields:
+      similarityThreshold: { type: number, required: true, minimum: 0.0, maximum: 1.0, description: "Jaccard similarity threshold for near-duplicate classification (default: 0.85)" }
+      minParagraphChars: { type: integer, required: true, minimum: 1, description: "Minimum character count for a paragraph to be fingerprinted (default: 20)" }
+      extraTrackingParams:
+        type: array
+        required: true
+        items: { type: string }
+        description: "Additional tracking-parameter names to strip beyond the built-in blocklist (default: empty array)"
+
+  DedupStats:
+    description: "Module-local statistics accumulator for observability and logging"
+    fields:
+      inputCount: { type: integer, required: true, minimum: 0, description: "Number of ContentItems received as input" }
+      emptyContentRemoved: { type: integer, required: true, minimum: 0, description: "Items removed because content was empty/null/whitespace-only" }
+      errorItemsRemoved: { type: integer, required: true, minimum: 0, description: "Items removed due to processing errors (caught exceptions)" }
+      exactUrlDuplicatesRemoved: { type: integer, required: true, minimum: 0, description: "Items removed by identical normalized URL" }
+      exactContentDuplicatesRemoved: { type: integer, required: true, minimum: 0, description: "Items removed by identical fingerprint sets" }
+      nearDuplicatesRemoved: { type: integer, required: true, minimum: 0, description: "Items removed by near-duplicate Jaccard similarity" }
+      outputCount: { type: integer, required: true, minimum: 0, description: "Number of DeduplicatedItems returned" }
+      elapsedMs: { type: number, required: true, minimum: 0, description: "Total wall-clock processing time in milliseconds" }
+
+  FingerprintedItem:
+    description: "Module-internal intermediate working structure used during content-level deduplication. Not exported."
+    fields:
+      item: { type: ContentItem, required: true, description: "Reference to the original content item" }
+      normalizedUrl: { type: string, required: true, description: "Canonical normalized URL" }
+      fingerprints:
+        type: array
+        required: true
+        items: { type: integer, format: uint32 }
+        description: "Set of 32-bit unsigned paragraph fingerprint hashes (FNV-1a)"
+      originalIndex: { type: integer, required: true, minimum: 0, description: "Zero-based position in the original input array for deterministic tie-breaking" }

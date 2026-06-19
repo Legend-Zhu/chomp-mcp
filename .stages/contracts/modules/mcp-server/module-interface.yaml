@@ -1,0 +1,129 @@
+interfaces:
+  Validation:
+    exports:
+      - name: validateWebSearchParams
+        params:
+          - params: unknown
+        returns: ValidationResultSuccess | ValidationResultFailure
+        description: "Validates raw MCP tool-call arguments for web_search against WebSearchInputSchema. Maps snake_case max_results to camelCase maxResults in WebSearchParams. Returns ValidationResultSuccess with WebSearchParams data on success, or ValidationResultFailure with human-readable message per US-MC-010."
+      - name: validateWebFetchParams
+        params:
+          - params: unknown
+        returns: ValidationResultSuccess | ValidationResultFailure
+        description: "Validates raw MCP tool-call arguments for web_fetch against WebFetchInputSchema. Validates url format as URI. Returns ValidationResultSuccess with WebFetchParams data on success, or ValidationResultFailure with message per US-MC-010."
+    imports:
+      - from: external:zod
+        functions: []
+
+  ToolDefinitions:
+    exports:
+      - name: WEB_SEARCH_TOOL
+        params: []
+        returns: ToolDefinition
+        description: "Static MCP Tool definition for web_search. Contains name='web_search', description, and inputSchema conforming to JSON Schema Draft 2020-12 with type object, required ['query'], optional max_results (default 5) and focus, additionalProperties false (US-MC-003)."
+      - name: WEB_FETCH_TOOL
+        params: []
+        returns: ToolDefinition
+        description: "Static MCP Tool definition for web_fetch. Contains name='web_fetch', description, and inputSchema conforming to JSON Schema Draft 2020-12 with type object, required ['url'] (format uri), optional focus, additionalProperties false (US-MC-004)."
+      - name: TOOL_DEFINITIONS
+        params: []
+        returns: ToolDefinition[]
+        description: "Array containing exactly [WEB_SEARCH_TOOL, WEB_FETCH_TOOL]. Returned by tools/list handler in server module (US-MC-005)."
+    imports: []
+
+  ToolHandlers:
+    exports:
+      - name: dispatchToolCall
+        params:
+          - name: string
+          - params: unknown
+          - handlers: OrchestrationHandlers
+        returns: Promise<CallToolResult>
+        description: "Main tool-call dispatcher invoked by MCP SDK CallToolRequest handler. Routes to handleWebSearch or handleWebFetch based on name. Returns formatErrorResponse for unknown tools (US-MC-009). Fully enclosed in try/catch, never throws."
+      - name: handleWebSearch
+        params:
+          - params: unknown
+          - handlers: OrchestrationHandlers
+        returns: Promise<CallToolResult>
+        description: "Handles web_search tool calls: validates params via validateWebSearchParams, invokes handlers.runWebSearch, formats result via formatSuccessResponse. Catches timeout errors and generic errors per US-MC-011. Logs dispatch to stderr (US-MC-006)."
+      - name: handleWebFetch
+        params:
+          - params: unknown
+          - handlers: OrchestrationHandlers
+        returns: Promise<CallToolResult>
+        description: "Handles web_fetch tool calls: validates params via validateWebFetchParams, invokes handlers.runWebFetch, formats result via formatSuccessResponse. Catches timeout errors and generic errors per US-MC-011. Logs dispatch to stderr (US-MC-007)."
+      - name: formatSuccessResponse
+        params:
+          - digest: string
+        returns: CallToolResult
+        description: "Formats successful digest string into MCP CallToolResult. Wraps in content array containing single TextContent {type:'text', text:digest}. Sets isError: false. Truncates at 25000 chars and appends truncation notice if exceeded (US-MC-008)."
+      - name: formatErrorResponse
+        params:
+          - message: string
+        returns: CallToolResult
+        description: "Formats error message into MCP CallToolResult. Wraps in content array containing single TextContent {type:'text', text:message}. Sets isError: true. No stack traces in message (US-MC-009, US-MC-010, US-MC-011)."
+    imports:
+      - from: Validation
+        functions: [validateWebSearchParams, validateWebFetchParams]
+
+  Server:
+    exports:
+      - name: createServer
+        params:
+          - options: CreateServerOptions
+        returns: Server
+        description: "Creates and configures MCP Server instance from @modelcontextprotocol/sdk with ServerInfo {name, version} from CreateServerOptions, declares tools capability, registers tools/list handler returning TOOL_DEFINITIONS and tools/call handler invoking dispatchToolCall with options.handlers. Does NOT connect transport (US-MC-002, US-MC-003, US-MC-004, US-MC-005, US-MC-006, US-MC-007)."
+      - name: startServer
+        params:
+          - server: Server
+        returns: Promise<void>
+        description: "Creates StdioServerTransport, connects to server, registers SIGTERM/SIGINT handlers calling shutdown, sets transport.onclose to exit 0 on stdin close. Logs '[mcp-server] listening on stdio' on connect (US-MC-001, US-MC-014)."
+      - name: shutdown
+        params:
+          - server: Server
+        returns: Promise<void>
+        description: "Graceful shutdown: stops accepting new requests, polls activeToolCalls counter every 100ms up to 5000ms grace period, closes transport, exits with code 0 (US-MC-014)."
+    imports:
+      - from: external:@modelcontextprotocol/sdk
+        functions: [Server, StdioServerTransport, ListToolsRequestSchema, CallToolRequestSchema]
+      - from: ToolDefinitions
+        functions: [TOOL_DEFINITIONS]
+      - from: ToolHandlers
+        functions: [dispatchToolCall]
+      - from: shared/utils/logger
+        functions: [log]
+
+  McpServerIndex:
+    exports:
+      - name: createServer
+        params:
+          - options: CreateServerOptions
+        returns: Server
+        description: "Public API re-export from Server module. Creates and configures MCP Server with injected OrchestrationHandlers."
+      - name: startServer
+        params:
+          - server: Server
+        returns: Promise<void>
+        description: "Public API re-export from Server module. Starts server via StdioServerTransport."
+      - name: shutdown
+        params:
+          - server: Server
+        returns: Promise<void>
+        description: "Public API re-export from Server module. Initiates graceful shutdown sequence."
+    imports:
+      - from: Server
+        functions: [createServer, startServer, shutdown]
+
+  ProcessEntry:
+    exports:
+      - name: main
+        params: []
+        returns: Promise<void>
+        description: "Process entry point (src/index.ts). Validates LLM_API_KEY env var (exits 1 if missing), imports appConfig for normalized env defaults, constructs runWebSearch and runWebFetch from pipeline-orchestration, injects into createServer as OrchestrationHandlers, calls startServer (US-MC-001, US-MC-012)."
+    imports:
+      - from: McpServerIndex
+        functions: [createServer, startServer]
+      - from: pipeline-orchestration
+        functions: [runWebSearch, runWebFetch]
+      - from: shared/config
+        functions: [appConfig]

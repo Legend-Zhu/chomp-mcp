@@ -1,0 +1,66 @@
+id: SRS5
+title: Implement SearXNG response parser with JSON validation, malformed-entry
+  skipping, and non-JSON detection
+description: >
+  Create src/modules/search-retrieval/response-parser.ts implementing
+  parseResponse,
+
+  validateUrl, and extractFields. Detects non-JSON responses by checking
+  Content-Type
+
+  and body prefix, JSON.parses valid bodies, extracts the results array,
+  type-narrows
+
+  each SearXNGRawResult via URL constructor validation, skips malformed entries
+  with a
+
+  counter, and handles empty/missing results arrays gracefully without errors.
+requirements:
+  - US-SR-002
+  - US-SR-008
+  - US-SR-009
+  - NFR-SR-004
+acceptanceCriteria:
+  - parseResponse checks Content-Type header for application/json and falls back
+    to checking if body starts with '{' or '['
+  - When body cannot be parsed as valid JSON, throws SearchParseError with
+    message indicating Content-Type and including first 200 chars for HTML
+    responses
+  - When parsed body lacks results key or results is not an array, returns
+    ParseOutput with empty results and skippedMalformed=0 (zero results is
+    valid)
+  - validateUrl type-narrows raw url value to string, validates via URL
+    constructor, returns URL string or null
+  - extractFields maps SearXNGRawResult title/content/score to ParsedResult,
+    returns null if url is missing or invalid
+  - Malformed entries (missing/invalid url) are skipped with skippedMalformed
+    counter incremented; processing continues for remaining entries
+  - A single malformed entry does NOT cause the entire parse to fail
+  - 'Empty results array triggers stderr log "SearXNG returned 0 results for
+    query: {query}" and resolves with empty array without error/retry/failover'
+  - SearchParseError is treated as retryable for retry/failover logic
+schemas:
+  - SearXNGFetchResult
+  - SearXNGRawResult
+  - ParsedResult
+  - ParseOutput
+files:
+  - src/modules/search-retrieval/response-parser.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+category: service
+implementationSteps:
+  - "Implement validateUrl(rawUrl: unknown) that coerces to string, validates
+    with new URL(), returns string|null"
+  - Implement extractFields(rawResult) that type-narrows title, content, score
+    and returns ParsedResult|null
+  - Implement parseResponse(fetchResult) that detects JSON via Content-Type and
+    body prefix, JSON.parses, iterates results array calling extractFields,
+    accumulates skippedMalformed
+  - Handle empty/missing results array by returning ParseOutput with empty
+    results array
+  - On JSON.parse failure, throw SearchParseError with diagnostic message
+    including Content-Type and first 200 chars of body
+  - Add query parameter to parseResponse or pass through for empty-result logging

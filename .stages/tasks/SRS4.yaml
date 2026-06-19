@@ -1,0 +1,62 @@
+id: SRS4
+title: Implement SearXNG HTTP client with AbortController timeout and native fetch
+description: >
+  Create src/modules/search-retrieval/searxng-client.ts implementing the HTTP
+  transport
+
+  layer. Uses Node.js 18+ global fetch (no axios/got polyfills) to send GET
+  requests to
+
+  SearXNG /search with format=json, safesearch=1, and optional categories.
+  Enforces
+
+  per-request timeout via AbortController, ensures no dangling TCP connections,
+  and
+
+  returns a SearXNGFetchResult with status, body, contentType, and parsed
+  Retry-After.
+requirements:
+  - US-SR-001
+  - US-SR-004
+  - DC-SR-004
+  - DC-SR-006
+acceptanceCriteria:
+  - buildSearchUrl constructs {instanceUrl}/search with query params q={query},
+    format=json, safesearch=1, and optional categories
+  - fetchSearXNG uses global fetch (Node 18+) with AbortController to enforce
+    config.timeoutMs
+  - When timeout elapses before full response, request is aborted, stderr logs
+    "SearXNG request timed out after {N}ms", and SearchTimeoutError is thrown
+  - AbortController ensures no dangling TCP connections remain from aborted
+    requests
+  - Returns SearXNGFetchResult with status (int), body (UTF-8 string),
+    contentType (header value or null), retryAfterMs (parsed from 429
+    Retry-After header capped at 10000ms, null otherwise)
+  - URL query parameters are properly encoded to handle special characters in
+    query strings
+  - No additional HTTP client libraries (axios, got) are imported; only native
+    fetch is used
+  - Request includes format=json as a mandatory parameter compatible with
+    standard SearXNG /search endpoint
+schemas:
+  - SearXNGFetchResult
+  - SearchConfig
+files:
+  - src/modules/search-retrieval/searxng-client.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+category: service
+implementationSteps:
+  - Implement buildSearchUrl(instanceUrl, query, config) using URL and
+    URLSearchParams for proper encoding
+  - Implement fetchSearXNG with fetch, an AbortController with setTimeout for
+    timeout enforcement
+  - On AbortError, clear timeout, log to stderr, and throw SearchTimeoutError
+  - Read Content-Type header and Retry-After header (parse seconds or HTTP-date,
+    cap at 10000ms) from response
+  - Convert response body to text via response.text() and return
+    SearXNGFetchResult
+  - Ensure timeout timer is always cleared in a finally block to prevent
+    dangling handles

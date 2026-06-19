@@ -1,0 +1,50 @@
+id: PL11
+title: Test orchestrator entry functions
+description: >
+  Create integration tests for the runWebSearch and runWebFetch entry functions.
+  Verify config
+
+  reading, timeout guard lifecycle, final logging, outcome-based throw-vs-return
+  decisions,
+
+  and statelessness across invocations. Uses mocked pipeline flow functions.
+requirements:
+  - US-PL-012
+  - US-PL-013
+  - BG-PL-002
+  - DC-PL-002
+  - DC-PL-005
+acceptanceCriteria:
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - All tests pass under the test runner
+schemas:
+  - WebSearchParams
+  - WebFetchParams
+files:
+  - tests/modules/pipeline-orchestration/orchestrator.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - PL6
+  - PL7
+category: test
+implementationSteps:
+  - Mock the pipeline flow functions (executeWebSearchPipeline,
+    executeWebFetchPipeline) or mock at the module boundary
+  - Mock or spy on the shared config singleton to return known PipelineConfig
+    values
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - "[object Object]"
+  - Spy on stderr (process.stderr.write) to verify structured log lines are
+    emitted with stage names, counts, and timing

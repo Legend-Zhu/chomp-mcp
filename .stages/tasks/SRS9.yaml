@@ -1,0 +1,63 @@
+id: SRS9
+title: Write unit tests for search error classes and instance pool
+description: >
+  Create tests/modules/search-retrieval/errors.test.ts and
+
+  tests/modules/search-retrieval/instance-pool.test.ts. Error tests verify
+  inheritance
+
+  chains, exact messages, and isRetryableError classification. Instance pool
+  tests
+
+  verify SEARXNG_URL validation, mode selection, cursor advancement, promotion,
+  and
+
+  volatile-state behavior.
+requirements:
+  - US-SR-006
+  - US-SR-007
+  - US-SR-012
+  - NFR-SR-004
+  - DC-SR-001
+  - DC-SR-005
+  - DC-SR-007
+acceptanceCriteria:
+  - errors.test.ts verifies SearchError extends Error and all subclasses extend
+    correct parents
+  - errors.test.ts verifies isRetryableError returns true for
+    SearchTimeoutError, SearchParseError and false for ValidationError,
+    ConfigurationError, SearchFailedError, SearchUnavailableError
+  - errors.test.ts verifies SearchUnavailableError exact message text
+  - instance-pool.test.ts verifies createInstancePool returns self-hosted mode
+    with single instance when SEARXNG_URL is valid
+  - instance-pool.test.ts verifies createInstancePool throws ConfigurationError
+    when SEARXNG_URL is invalid
+  - instance-pool.test.ts verifies public mode has at least 3 instances when
+    SEARXNG_URL absent
+  - instance-pool.test.ts verifies advanceToNextInstance, promoteInstance,
+    resetCursor, hasMoreInstances behavior
+  - instance-pool.test.ts verifies no paid APIs are referenced and all config is
+    env-var driven
+  - instance-pool.test.ts verifies instance reordering is in-memory only with no
+    file or DB writes
+schemas:
+  - InstancePool
+  - SearchErrorCategory
+files:
+  - tests/modules/search-retrieval/errors.test.ts
+  - tests/modules/search-retrieval/instance-pool.test.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+  - SRS3
+category: test
+implementationSteps:
+  - Write errors.test.ts testing class hierarchy via instanceof checks and
+    isRetryableError for each error type
+  - Write instance-pool.test.ts using beforeEach to set/unset SEARXNG_URL env
+    var for each test case
+  - Test cursor advancement returns correct booleans at boundaries (first,
+    middle, last instance)
+  - Test promoteInstance moves URL to front and that resetCursor sets cursor to 0
+  - Mock or spy on stderr to verify logging without polluting stdout

@@ -1,0 +1,64 @@
+modules:
+  deduplicate:
+    schemas:
+      - DeduplicatedItem
+      - DDConfig
+      - DedupStats
+      - FingerprintedItem
+    file: .stages/contracts/modules/deduplicate/data-model.yaml
+  mcp-server:
+    schemas:
+      - WebSearchParams
+      - WebFetchParams
+      - OrchestrationHandlers
+      - CreateServerOptions
+      - ValidationResultSuccess
+      - ValidationResultFailure
+      - TextContent
+      - CallToolResult
+      - WebSearchInputSchema
+      - WebFetchInputSchema
+      - ToolDefinition
+      - ServerInfo
+    file: .stages/contracts/modules/mcp-server/data-model.yaml
+  pipeline-orchestration:
+    schemas:
+      - WebSearchParams
+      - WebFetchParams
+      - PipelineError
+      - PipelineTimeoutError
+    file: .stages/contracts/modules/pipeline-orchestration/data-model.yaml
+  scrape-extract:
+    schemas:
+      - ScrapeResult
+      - ScrapeOptions
+      - ScrapeConfig
+      - FetchResult
+      - ExtractionOutput
+      - RenderResult
+      - ContentTypeResult
+      - ValidationResult
+      - TruncationResult
+      - enums
+    file: .stages/contracts/modules/scrape-extract/data-model.yaml
+  search-retrieval:
+    schemas:
+      - SearchResult
+      - SearchOptions
+      - SearXNGRawResult
+      - ParsedResult
+      - ParseOutput
+      - SearXNGFetchResult
+      - SearchConfig
+      - InstancePool
+    file: .stages/contracts/modules/search-retrieval/data-model.yaml
+  synthesize:
+    schemas:
+      - SynthesizeConfig
+      - LLMResponse
+      - LLMCallOptions
+      - RetryConfig
+      - DigestResult
+      - SourceRef
+      - ContentItem
+    file: .stages/contracts/modules/synthesize/data-model.yaml

@@ -1,0 +1,98 @@
+id: SRS7
+title: Implement retry-failover orchestrator with backoff, query validation,
+  config resolution, and 30s ceiling
+description: >
+  Create src/modules/search-retrieval/retry-failover.ts implementing the core
+  search
+
+  orchestrator: search (public entry), validateQuery, resolveConfig,
+  computeBackoffDelay,
+
+  and executeWithRetryFailover. Coordinates per-instance retry with exponential
+  backoff
+
+  and jitter, honors Retry-After headers for 429s, manages cross-instance
+  failover,
+
+  enforces a 30-second overall ceiling, and emits structured SEARCH
+  START/OK/RETRY/FAILED
+
+  log events exclusively to stderr.
+requirements:
+  - US-SR-001
+  - US-SR-005
+  - US-SR-006
+  - US-SR-011
+  - BG-SR-001
+  - BG-SR-002
+  - NFR-SR-001
+  - NFR-SR-002
+  - NFR-SR-005
+  - NFR-SR-006
+acceptanceCriteria:
+  - search validates query via validateQuery (non-empty, non-whitespace, <=500
+    chars) throwing ValidationError with exact messages
+  - resolveConfig merges SEARXNG_TIMEOUT_MS (default 10000), SEARXNG_MAX_RETRIES
+    (default 2), SEARXNG_RETRY_BASE_MS (default 500) with SearchOptions
+    overrides
+  - When SEARXNG_TIMEOUT_MS is not a positive integer, resolveConfig falls back
+    to 10000 and logs warning to stderr
+  - computeBackoffDelay returns base*2^attemptIndex with +/-20% jitter; honors
+    Retry-After header (capped 10000ms) for HTTP 429
+  - executeWithRetryFailover retries network errors, timeouts, HTTP 5xx, and
+    SearchParseError against same instance
+  - On retry success logs "Search succeeded on attempt {N} after retry" to stderr
+  - When all retries on current instance exhausted and more instances exist,
+    advances cursor, resets retry counter, and tries next instance
+  - 'On failover success logs "Failover succeeded using instance: {url}" to
+    stderr and promotes instance to front'
+  - When all public instances exhausted throws SearchUnavailableError with
+    prescribed message
+  - When self-hosted instance exhausts all retries throws SearchFailedError (no
+    failover)
+  - Overall 30-second hard ceiling aborts all pending requests and throws
+    SearchFailedError if reached
+  - 'Logs "SEARCH START | query: {query} | instance: {url} | attempt: {N}" on
+    each request initiation'
+  - 'Logs "SEARCH OK | results: {count} | duration_ms: {elapsed} | instance:
+    {url}" on success'
+  - 'Logs "SEARCH RETRY | reason: {errorType} | nextAttemptIn: {delayMs}ms"
+    before retry backoff'
+  - 'Logs "SEARCH FAILED | query: {query} | errors: {errorSummary}" when all
+    attempts fail'
+  - All logging is exclusively to stderr; nothing is written to stdout
+  - No API keys or credentials appear in any log message, error object, or
+    request parameter
+  - Zero configuration needed for first-time use with public instances
+schemas:
+  - SearchConfig
+  - SearchOptions
+  - InstancePool
+  - SearchResult
+files:
+  - src/modules/search-retrieval/retry-failover.ts
+mode: create
+dependsOn:
+  - BOOTSTRAP
+  - SRS2
+  - SRS3
+  - SRS4
+  - SRS5
+  - SRS6
+category: service
+implementationSteps:
+  - Implement validateQuery(query) checking typeof string, trim non-empty,
+    length <=500, throwing ValidationError with exact messages
+  - Implement resolveConfig(options) reading env vars via appConfig with
+    fallback defaults and positive-integer validation warning
+  - Implement computeBackoffDelay(attemptIndex, retryBaseMs, retryAfterMs) with
+    Math.random jitter and Retry-After cap
+  - Implement executeWithRetryFailover(query, config, pool) with per-instance
+    retry loop, failover advancement, 30s ceiling via overall startTime check,
+    and structured logging
+  - Wire together fetchSearXNG -> parseResponse -> normalizeResults pipeline
+    within the retry loop
+  - Handle HTTP 429 by parsing Retry-After from SearXNGFetchResult and passing
+    to computeBackoffDelay
+  - Ensure all catch blocks classify errors via isRetryableError to decide retry
+    vs failover vs terminal throw

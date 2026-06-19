@@ -1,0 +1,217 @@
+interfaces:
+  Index:
+    description: "Main entry point module; re-exports public API surface from internal modules"
+    exports:
+      - name: search
+        params: [{query: string}, {options: SearchOptions}]
+        returns: SearchResult[]
+        description: "Executes search query against SearXNG with retry and failover; returns normalized, scored, de-duplicated SearchResult[] sorted by descending score"
+      - name: SearchResult
+        params: []
+        returns: type
+        description: "Interface: { title: string; url: string; snippet: string; score: number }"
+      - name: SearchOptions
+        params: []
+        returns: type
+        description: "Interface: { maxResults?: number; timeoutMs?: number; categories?: string }"
+      - name: SearchError
+        params: []
+        returns: class
+        description: "Base error class for all search module errors; extends Error"
+      - name: SearchTimeoutError
+        params: []
+        returns: class
+        description: "Thrown when per-request timeout exceeded after all retries; extends SearchError"
+      - name: SearchParseError
+        params: []
+        returns: class
+        description: "Thrown when SearXNG response cannot be parsed as JSON or is non-JSON content type; extends SearchError"
+      - name: SearchFailedError
+        params: []
+        returns: class
+        description: "Thrown when self-hosted SEARXNG_URL instance exhausts all retries without success; extends SearchError"
+      - name: SearchUnavailableError
+        params: []
+        returns: class
+        description: "Thrown when all public SearXNG instances in failover list are exhausted; extends SearchError"
+      - name: ConfigurationError
+        params: []
+        returns: class
+        description: "Thrown for invalid module configuration such as malformed SEARXNG_URL; extends Error"
+      - name: ValidationError
+        params: []
+        returns: class
+        description: "Thrown for invalid query input (empty, whitespace-only, or exceeding 500 chars); extends Error"
+    imports:
+      - from: RetryFailover
+        functions: [search]
+      - from: Errors
+        functions: [SearchError, SearchTimeoutError, SearchParseError, SearchFailedError, SearchUnavailableError, ConfigurationError, ValidationError]
+      - from: shared/types/search
+        functions: [SearchResult, SearchOptions]
+
+  RetryFailover:
+    description: "Core orchestrator: validates query, resolves config, coordinates retry loop with exponential backoff, and manages cross-instance failover with 30s overall ceiling"
+    exports:
+      - name: search
+        params: [{query: string}, {options: SearchOptions}]
+        returns: SearchResult[]
+        description: "Validates query (non-empty, ≤500 chars), resolves SearchConfig from options and env vars, resets instance pool cursor, executes retry-failover loop with 30s hard ceiling, returns normalized SearchResult[] or throws typed SearchError subclass"
+      - name: resolveConfig
+        params: [{options: SearchOptions}]
+        returns: SearchConfig
+        description: "Merges env-var defaults (SEARXNG_TIMEOUT_MS=10000, SEARXNG_MAX_RETRIES=2, SEARXNG_RETRY_BASE_MS=500) with SearchOptions overrides into resolved SearchConfig; validates timeoutMs is positive integer with fallback warning"
+      - name: validateQuery
+        params: [{query: string}]
+        returns: void
+        description: "Validates query is a non-empty, non-whitespace string ≤500 chars; throws ValidationError('Query must be a non-empty string') or ValidationError('Query must not exceed 500 characters')"
+      - name: executeWithRetryFailover
+        params: [{query: string}, {config: SearchConfig}, {pool: InstancePool}]
+        returns: SearchResult[]
+        description: "Per-instance retry loop with exponential backoff (base*2^attempt with ±20% jitter), HTTP 429 Retry-After header honoring (capped 10s), cross-instance failover advancement, 30s overall ceiling enforcement; logs SEARCH START/OK/RETRY/FAILED to stderr"
+      - name: computeBackoffDelay
+        params: [{attemptIndex: integer}, {retryBaseMs: integer}, {retryAfterMs: integer}]
+        returns: integer
+        description: "Computes exponential backoff delay as base*2^attemptIndex with ±20% jitter; honors Retry-After header (capped at 10000ms) when retryAfterMs is provided for HTTP 429"
+    imports:
+      - from: InstancePool
+        functions: [createInstancePool, getCurrentInstance, advanceToNextInstance, promoteInstance, resetCursor, hasMoreInstances]
+      - from: SearXNGClient
+        functions: [fetchSearXNG]
+      - from: ResponseParser
+        functions: [parseResponse]
+      - from: ResultNormalizer
+        functions: [normalizeResults]
+      - from: Errors
+        functions: [ValidationError, SearchFailedError, SearchUnavailableError]
+      - from: shared/config
+        functions: [appConfig]
+
+  InstancePool:
+    description: "Manages ordered list of SearXNG instance URLs with cursor-based failover; self-hosted mode uses single SEARXNG_URL with no failover, public mode uses built-in list of ≥3 instances"
+    exports:
+      - name: createInstancePool
+        params: []
+        returns: InstancePool
+        description: "Reads SEARXNG_URL from appConfig; returns self-hosted InstancePool (mode='self-hosted', single instance, no failover) if valid URL set, or public InstancePool (mode='public', built-in ≥3 instance list) otherwise; logs mode and endpoint to stderr"
+      - name: getCurrentInstance
+        params: [{pool: InstancePool}]
+        returns: string
+        description: "Returns the instance URL at the current cursor position in pool.instances"
+      - name: advanceToNextInstance
+        params: [{pool: InstancePool}]
+        returns: boolean
+        description: "Increments cursor to next failover candidate; returns true if new instance available, false if cursor exhausted all instances; resets per-instance retry counter"
+      - name: promoteInstance
+        params: [{pool: InstancePool}, {url: string}]
+        returns: void
+        description: "Moves the given instance URL to front of pool.instances array for subsequent searches after successful failover; logs new ordering at debug level"
+      - name: resetCursor
+        params: [{pool: InstancePool}]
+        returns: void
+        description: "Resets pool.cursor to 0 at the start of each search() call"
+      - name: hasMoreInstances
+        params: [{pool: InstancePool}]
+        returns: boolean
+        description: "Returns true if pool.cursor + 1 < pool.instances.length (additional failover candidates exist)"
+    imports:
+      - from: Errors
+        functions: [ConfigurationError]
+      - from: shared/config
+        functions: [appConfig]
+
+  SearXNGClient:
+    description: "HTTP transport layer using Node.js 18+ native fetch with AbortController-based timeouts; performs GET to SearXNG /search endpoint"
+    exports:
+      - name: fetchSearXNG
+        params: [{instanceUrl: string}, {query: string}, {config: SearchConfig}]
+        returns: SearXNGFetchResult
+        description: "Sends HTTP GET to {instanceUrl}/search with params q={query}, format=json, safesearch=1, categories={config.categories if set}; enforces config.timeoutMs via AbortController; returns SearXNGFetchResult with status, body, contentType, retryAfterMs; aborts on timeout with no dangling TCP connections"
+      - name: buildSearchUrl
+        params: [{instanceUrl: string}, {query: string}, {config: SearchConfig}]
+        returns: string
+        description: "Constructs the full SearXNG /search URL with query parameters: q, format=json, safesearch=1, and optional categories"
+    imports:
+      - from: Errors
+        functions: [SearchTimeoutError]
+
+  ResponseParser:
+    description: "Parses SearXNG HTTP response: validates JSON, extracts results array, type-narrows fields, skips malformed entries, detects non-JSON content"
+    exports:
+      - name: parseResponse
+        params: [{fetchResult: SearXNGFetchResult}]
+        returns: ParseOutput
+        description: "Checks Content-Type header and body prefix for JSON detection; JSON.parses body; extracts results array; type-narrows each SearXNGRawResult to ParsedResult validating url via URL constructor; skips entries with missing/invalid url incrementing skippedMalformed; returns empty ParseOutput if no results array; throws SearchParseError for non-JSON or unparseable bodies (includes first 200 chars for HTML)"
+      - name: validateUrl
+        params: [{rawUrl: any}]
+        returns: string
+        description: "Type-narrows raw url value to string and validates via URL constructor; returns validated URL string or null if invalid"
+      - name: extractFields
+        params: [{rawResult: SearXNGRawResult}]
+        returns: ParsedResult
+        description: "Extracts and type-narrows title, content, score from SearXNGRawResult into ParsedResult; returns null if url missing or invalid"
+    imports:
+      - from: Errors
+        functions: [SearchParseError]
+
+  ResultNormalizer:
+    description: "Transforms ParsedResult[] into final SearchResult[]: applies score normalization, field defaults, truncation, exact-URL dedup, sorting, and maxResults truncation"
+    exports:
+      - name: normalizeResults
+        params: [{parseOutput: ParseOutput}, {maxResults: integer}]
+        returns: SearchResult[]
+        description: "Applies full normalization pipeline: field defaults (title→'(untitled)', snippet→''), truncation (title 497+'...', snippet 997+'...'), score normalization to [0,1] by max-score division or positional rank fallback, exact-URL dedup (fragment-insensitive, keep highest score), sort by descending score, truncate to maxResults; logs dedup count to stderr"
+      - name: normalizeScore
+        params: [{results: ParsedResult[]}]
+        returns: number[]
+        description: "Computes normalized scores in [0,1]: divides each score by max if SearXNG provided scores; otherwise assigns positional score = 1.0 - (index/total); single result gets 1.0"
+      - name: deduplicateByExactUrl
+        params: [{results: SearchResult[]}]
+        returns: SearchResult[]
+        description: "Removes exact duplicate URLs (case-sensitive, fragment-insensitive); retains entry with highest score per unique URL; logs count removed to stderr"
+      - name: truncateField
+        params: [{value: string}, {maxLength: integer}]
+        returns: string
+        description: "Truncates string to maxLength characters; appends '...' if truncation occurred (e.g., 497+3 for title, 997+3 for snippet)"
+      - name: normalizeUrlForDedup
+        params: [{url: string}]
+        returns: string
+        description: "Strips URL fragment (#...) for fragment-insensitive exact dedup comparison"
+    imports: []
+
+  Errors:
+    description: "Defines all custom error classes for the search module with proper inheritance chains"
+    exports:
+      - name: SearchError
+        params: [{message: string}]
+        returns: Error
+        description: "Base error class extending Error; all search-specific errors inherit from this (except ConfigurationError and ValidationError which extend Error directly as input/config errors)"
+      - name: SearchTimeoutError
+        params: [{message: string}]
+        returns: SearchError
+        description: "Extends SearchError; thrown when AbortController timeout fires before response received; treated as retryable"
+      - name: SearchParseError
+        params: [{message: string}]
+        returns: SearchError
+        description: "Extends SearchError; thrown for invalid JSON, non-JSON content type, or missing results array structure; treated as retryable; includes body excerpt for HTML responses"
+      - name: SearchFailedError
+        params: [{message: string}]
+        returns: SearchError
+        description: "Extends SearchError; thrown when self-hosted SEARXNG_URL instance exhausts all retries without success; not retryable"
+      - name: SearchUnavailableError
+        params: [{message: string}]
+        returns: SearchError
+        description: "Extends SearchError; thrown when all public SearXNG instances exhausted; message guides user to set SEARXNG_URL"
+      - name: ConfigurationError
+        params: [{message: string}]
+        returns: Error
+        description: "Extends Error; thrown at init for invalid SEARXNG_URL (missing protocol, malformed syntax)"
+      - name: ValidationError
+        params: [{message: string}]
+        returns: Error
+        description: "Extends Error; thrown for empty/whitespace query ('Query must be a non-empty string') or query >500 chars ('Query must not exceed 500 characters')"
+      - name: isRetryableError
+        params: [{error: Error}]
+        returns: boolean
+        description: "Returns true for SearchTimeoutError, SearchParseError, network errors, and HTTP 5xx status errors; false for ValidationError, ConfigurationError, SearchFailedError, SearchUnavailableError"
+    imports: []

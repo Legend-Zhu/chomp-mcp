@@ -1,0 +1,108 @@
+UrlNormalizer:
+  export normalizeUrl(rawUrl:string, extraTrackingParams:string[]): string
+  export TRACKING_PARAM_BLOCKLIST(): void
+ParagraphSegmenter:
+  export segmentParagraphs(text:string, minChars:number): string[]
+Fingerprinter:
+  export fnv1a32(normalizedText:string): number
+  export computeFingerprintSet(content:string, minChars:number): Set<number>
+  export FNV_OFFSET_32(): void
+  export FNV_PRIME_32(): void
+  import from ParagraphSegmenter: segmentParagraphs
+SimilarityComputer:
+  export jaccardSimilarity(setA:Set<number>, setB:Set<number>): number
+ContentMerger:
+  export deduplicateByUrl(items:FingerprintedItem[]): { retained: FingerprintedItem[], removed: number }
+  export deduplicateExactContent(items:FingerprintedItem[]): { retained: FingerprintedItem[], removed: number }
+  export mergeNearDuplicates(items:FingerprintedItem[], threshold:number): { retained: FingerprintedItem[], removed: number, groupsMerged: number }
+  import from SimilarityComputer: jaccardSimilarity
+Stats:
+  export createDedupStats(): DedupStats
+  export logStats(stats:DedupStats): void
+Types:
+  export DedupStats(): void
+  export FingerprintedItem(): void
+  export MAX_PAIRWISE_ITEMS(): void
+  export MIN_PARAGRAPH_CHARS_DEFAULT(): void
+  export SIMILARITY_THRESHOLD_DEFAULT(): void
+  import from ContentItem: 
+Deduplicator:
+  export deduplicate(items:ContentItem[], config:DDConfig): DeduplicatedItem[]
+  import from UrlNormalizer: normalizeUrl
+  import from Fingerprinter: computeFingerprintSet
+  import from ContentMerger: deduplicateByUrl, deduplicateExactContent, mergeNearDuplicates
+  import from Stats: createDedupStats, logStats
+Validation:
+  export validateWebSearchParams(undefined:undefined): ValidationResultSuccess | ValidationResultFailure
+  export validateWebFetchParams(undefined:undefined): ValidationResultSuccess | ValidationResultFailure
+  import from external:zod: 
+ToolDefinitions:
+  export WEB_SEARCH_TOOL(): ToolDefinition
+  export WEB_FETCH_TOOL(): ToolDefinition
+  export TOOL_DEFINITIONS(): ToolDefinition[]
+ToolHandlers:
+  export dispatchToolCall(string:undefined, undefined:undefined, undefined:undefined): Promise<CallToolResult>
+  export handleWebSearch(undefined:undefined, undefined:undefined): Promise<CallToolResult>
+  export handleWebFetch(undefined:undefined, undefined:undefined): Promise<CallToolResult>
+  export formatSuccessResponse(undefined:undefined): CallToolResult
+  export formatErrorResponse(undefined:undefined): CallToolResult
+  import from Validation: validateWebSearchParams, validateWebFetchParams
+Server:
+  export createServer(undefined:undefined): Server
+  export startServer(undefined:undefined): Promise<void>
+  export shutdown(undefined:undefined): Promise<void>
+  import from external:@modelcontextprotocol/sdk: Server, StdioServerTransport, ListToolsRequestSchema, CallToolRequestSchema
+  import from ToolDefinitions: TOOL_DEFINITIONS
+  import from ToolHandlers: dispatchToolCall
+  import from shared/utils/logger: log
+McpServerIndex:
+  export createServer(undefined:undefined): Server
+  export startServer(undefined:undefined): Promise<void>
+  export shutdown(undefined:undefined): Promise<void>
+  import from Server: createServer, startServer, shutdown
+ProcessEntry:
+  export main(): Promise<void>
+  import from McpServerIndex: createServer, startServer
+  import from pipeline-orchestration: runWebSearch, runWebFetch
+  import from shared/config: appConfig
+PipelineOrchestration:
+  export runWebSearch(undefined:undefined): string
+  export runWebFetch(undefined:undefined): string
+  export createPipelineError(undefined:undefined, undefined:undefined, undefined:undefined): PipelineError
+  export createPipelineTimeoutError(undefined:undefined, undefined:undefined, undefined:undefined): PipelineTimeoutError
+  import from SearchRetrieval: search
+  import from ScrapeExtract: scrape
+  import from Deduplicate: deduplicate
+  import from Synthesize: synthesize, synthesizeSingle
+Synthesizer:
+  export synthesize(undefined:undefined, undefined:undefined, undefined:undefined): Promise<DigestResult>
+  export synthesizeSingle(undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined): Promise<DigestResult>
+  import from LLMClient: createLLMClient, verifyLLMConnectivity, callLLMWithRetry
+  import from PromptBuilder: buildSystemPrompt, buildUserPrompt, buildSingleSourcePrompt
+  import from TokenEstimator: estimateTokens
+  import from BatchMerger: batchAndMerge
+  import from ResponseParser: parseDigestResponse, reconcileSources
+  import from DegradationHandler: degradationFallback
+LLMClient:
+  export createLLMClient(undefined:undefined): OpenAIClient
+  export verifyLLMConnectivity(undefined:undefined): Promise<boolean>
+  export callLLMWithRetry(undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined): Promise<LLMResponse>
+PromptBuilder:
+  export buildSystemPrompt(): string
+  export buildUserPrompt(undefined:undefined, undefined:undefined, undefined:undefined): string
+  export buildSingleSourcePrompt(undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined): string
+  export buildMergePrompt(undefined:undefined, undefined:undefined, undefined:undefined): { systemPrompt: string, userPrompt: string }
+TokenEstimator:
+  export estimateTokens(undefined:undefined): number
+BatchMerger:
+  export batchAndMerge(undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined, undefined:undefined): Promise<DigestResult>
+  import from LLMClient: callLLMWithRetry
+  import from PromptBuilder: buildSystemPrompt, buildMergePrompt
+  import from TokenEstimator: estimateTokens
+  import from ResponseParser: parseDigestResponse, reconcileSources
+  import from DegradationHandler: degradationFallback
+ResponseParser:
+  export parseDigestResponse(undefined:undefined, undefined:undefined): DigestResult
+  export reconcileSources(undefined:undefined, undefined:undefined): DigestResult
+DegradationHandler:
+  export degradationFallback(undefined:undefined, undefined:undefined, undefined:undefined): DigestResult
